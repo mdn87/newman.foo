@@ -4,10 +4,12 @@ import { FlightPath, nodeParam } from '../core/path';
 import { makeBodies } from '../core/parallax';
 
 const BG = 0xffffff, LINE = 0x4ab3d4, LINE_FAINT = 0xcfe4f0;
-const CAM_BACK = 9, CAM_UP = 3;
+const CAM_BACK = 9, CAM_UP = 3, CAM_DEPTH = 6.3;
+const ASTRONAUT_RIGHT = -0.7, ASTRONAUT_FORWARD = -1.2, ASTRONAUT_MARGIN = 0.1;
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
 const v3 = (v: Vec3) => new THREE.Vector3(v.x, v.y, v.z);
+const nodeRadius = (node: NodeDef) => node.kind === 'intro' || node.kind === 'contact' ? 1.6 : 2.4;
 
 function edged(geom: THREE.BufferGeometry, fill: number, line: number, opacity = 1): THREE.Group {
   const g = new THREE.Group();
@@ -58,7 +60,7 @@ export class WorldScene {
 
     // Node planets: icosahedrons with accent ring.
     nodes.forEach((n, i) => {
-      const r = n.kind === 'intro' || n.kind === 'contact' ? 1.6 : 2.4;
+      const r = nodeRadius(n);
       const planet = edged(new THREE.IcosahedronGeometry(r, 1), BG, LINE);
       const ring = new THREE.LineLoop(
         new THREE.BufferGeometry().setFromPoints(
@@ -131,10 +133,18 @@ export class WorldScene {
     const eye = this.path.sample(Math.max(0, u - CAM_BACK / 150));
     const look = this.path.sample(Math.min(1, u + 0.02));
     const bob = this.idle ? Math.sin(this.time * 1.4) * 0.15 : 0;
-    this.camera.position.set(eye.x, eye.y + CAM_UP + bob * 0.3, eye.z - CAM_BACK * 0.4);
+    this.camera.position.set(eye.x, eye.y + CAM_UP + bob * 0.3, eye.z - CAM_DEPTH);
     this.camera.lookAt(look.x, look.y, look.z);
-    const here = this.path.sample(u);
-    this.astronaut.position.set(here.x, here.y + bob, here.z);
+    const here = v3(this.path.sample(u));
+    const activeIndex = travel.kind === 'atNode' ? travel.index : travel.to;
+    const activeRadius = nodeRadius(this.nodes[activeIndex]!);
+    const forward = v3(look).sub(this.camera.position).normalize();
+    const right = new THREE.Vector3().crossVectors(forward, this.camera.up).normalize();
+    const up = new THREE.Vector3().crossVectors(right, forward).normalize();
+    this.astronaut.position.copy(here)
+      .addScaledVector(right, ASTRONAUT_RIGHT)
+      .addScaledVector(up, activeRadius + ASTRONAUT_MARGIN + bob)
+      .addScaledVector(forward, ASTRONAUT_FORWARD);
     this.astronaut.rotation.z = this.idle ? Math.sin(this.time * 0.6) * 0.12 : 0;
     if (this.idle) {
       for (const p of this.planets) p.rotation.y += dt * 0.15;
