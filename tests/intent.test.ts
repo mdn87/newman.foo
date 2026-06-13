@@ -13,10 +13,10 @@ describe('WheelIntent', () => {
 
   it('small drifts below threshold never fire', () => {
     const w = new WheelIntent({ threshold: 50 });
-    expect(w.feed(10, 0)).toBe(0);
+    expect(w.feed(30, 0)).toBe(0);
     // 300ms gap resets the accumulator, so slow trickles never sum to a fire
-    expect(w.feed(10, 300)).toBe(0);
-    expect(w.feed(10, 600)).toBe(0);
+    expect(w.feed(30, 300)).toBe(0);
+    expect(w.feed(30, 600)).toBe(0);
   });
 
   it('fires again after the cooldown', () => {
