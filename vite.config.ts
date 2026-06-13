@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   build: {
@@ -8,5 +8,8 @@ export default defineConfig({
         manualChunks: { three: ['three'] },
       },
     },
+  },
+  test: {
+    include: ['tests/**/*.test.ts'],
   },
 });
