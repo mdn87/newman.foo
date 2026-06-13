@@ -11,6 +11,7 @@ export class Hud {
   private hint!: HTMLElement;
   private panel!: HTMLElement;
   private readonly nodes: NodeDef[];
+  private currentKey: string | null = null;
 
   constructor(root: HTMLElement, nodes: NodeDef[], site: typeof SITE) {
     this.nodes = nodes;
@@ -29,6 +30,9 @@ export class Hud {
   }
 
   setAtNode(index: number): void {
+    const key = `node:${index}`;
+    if (this.currentKey === key) return;
+    this.currentKey = key;
     const n = this.nodes[index]!;
     this.status.textContent = `NODE ${pad(index + 1)}/${pad(this.nodes.length)} · ${n.title.toUpperCase()}`;
     this.hint.textContent = 'scroll ↓ advance · ↑ back · click a planet';
@@ -39,6 +43,9 @@ export class Hud {
   }
 
   setTransit(to: number): void {
+    const key = `transit:${to}`;
+    if (this.currentKey === key) return;
+    this.currentKey = key;
     const n = this.nodes[to]!;
     this.status.textContent = `▸ EN ROUTE: ${n.title.toUpperCase()}`;
     this.hint.textContent = '';
