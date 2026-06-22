@@ -40,7 +40,16 @@ Keep the existing boundaries:
 - DOM labels and controls stay in `src/hud`.
 - Fallback rendering remains available for prerendered/static routes.
 
-Add or evolve a movement controller that owns:
+Add a continuous `MotionController` that replaces the runtime use of `TravelMachine` and `WheelIntent` in `src/world/wire.ts`. `progress` is the source of truth. Node index, transit status, HUD focus, route updates, and overview status are derived from that progress.
+
+Use a node-unit progress domain:
+
+- `progress = -1` is the overview pull-back state.
+- `progress = 0` is the first content node.
+- `progress = nodeCount - 1` is the last content node.
+- Non-integer values are in-between rail motion.
+
+The controller owns:
 
 - `progress`: current continuous path position.
 - `targetProgress`: where input wants to move.
@@ -49,7 +58,9 @@ Add or evolve a movement controller that owns:
 - Conversion between node indexes and path progress.
 - Reduced-motion behavior.
 
-The existing `TravelMachine` can either be adapted or wrapped. The implementation plan should choose the smaller change after inspecting tests, but the public behavior should support continuous progress while preserving node arrival semantics for HUD and routes.
+`TravelMachine` should no longer drive the live world. It can stay in the codebase if tests or fallback behavior still need it, but the rail prototype should expose a thin derived state for existing consumers: current node, target node during travel, overview, and arrival callbacks. This preserves HUD and route semantics while allowing continuous wheel/trackpad input.
+
+Core movement must remain deterministic. The controller receives `dt` and input deltas from callers; it must not call `performance.now()`, `Date.now()`, or read browser state inside `src/core`.
 
 `WorldScene` should evolve from galaxy star-map rendering to rail flythrough rendering:
 
@@ -59,15 +70,25 @@ The existing `TravelMachine` can either be adapted or wrapped. The implementatio
 - Keep project destinations clickable/pickable.
 - Keep labels tied to projected destination positions.
 
+The path should stop being only `new FlightPath(this.nodePositions)`. Add authored path control points between content nodes so there is space for sweep-past scenery and camera turns. Content nodes remain anchors on that path, but scenery can live between them.
+
+Keep the existing overview behavior, but repurpose it. Backing up from node 0 should still reach `progress = -1`; visually, this is now a pulled-back route/mission view built from the old-site asset language, not the generated galaxy overview. Entering from overview eases back into node 0. The HUD may still call this "overview" internally, but user-facing copy should move away from "STAR MAP" if the scene no longer reads as a galaxy map.
+
 ## Asset Direction
 
-Use `notanastronaut.net/img` as the source vocabulary for the prototype. Candidate assets:
+Use `notanastronaut.net/img` as the source vocabulary for the prototype. Curated assets should be copied into tracked build paths before use, preferably `src/assets/rail/` for Vite-imported sprites. Do not load runtime assets directly from the untracked `notanastronaut.net/` mirror.
+
+Candidate assets:
 
 - `astronaut.png` for the anchored character.
 - `planet1-375x250.png`, `planet1-375x250-alt.png`, and `planet2-200x175.png` for landmarks.
 - `comet2-325x150.png`, `comet-125x100.png`, `cloud-200x85.png`, `star-75x75.png`, and `star2-25x25.png` for scenery.
 - `lunar-surface.png` and rivet border art for near-field sweep pieces.
 - `proj1.png`, `proj2.png`, `proj3.png`, `logo.png`, and `motion.png` for destination markers or content-adjacent objects.
+
+Use the current `src/assets/astronaut-alpha.png` if it avoids matte/halo artifacts better than `notanastronaut.net/img/astronaut.png`; otherwise copy the old-site astronaut into `src/assets/rail/` and verify transparency visually.
+
+The existing `public/artwork/galaxy/galaxy-depth-{far,mid,near}.svg`, comet, star, and related SVGs may be used as reference for layering vocabulary, but they should not remain the primary visual environment unless they clearly match the old-site style.
 
 Do not polish or expand the full art system in the first pass. The first pass should prove motion quality using existing assets, with only small transformations such as scaling, rotation, opacity, tint consistency, and placement.
 
@@ -86,6 +107,10 @@ Snap behavior:
 - Slow movement near a node eases into that node.
 - Strong wheel intent can move through a node rather than trapping the visitor.
 - Arriving at a node updates title/content focus as the current implementation does.
+
+The existing wheel threshold/cooldown behavior is too discrete for the prototype. Wheel and trackpad input should feed signed deltas into the controller so small gestures create small progress changes and sustained gestures produce continuous movement.
+
+Near-field sweep pieces must respect a central readability safe zone while a node is settling or at rest. Either keep near pieces out of the label/panel area at rest or render labels/panels with enough backing/contrast to stay readable. The first pass should prefer safe placement over adding new UI chrome.
 
 ## Reduced Motion
 
@@ -113,6 +138,8 @@ Visual verification should include desktop and mobile screenshots or browser ins
 - Near-field objects sweep past without obscuring key labels.
 - Nodes remain readable at rest.
 - Reduced-motion mode avoids unnecessary motion.
+
+Motion quality needs a human review gate. Passing automated tests means the implementation is technically stable; it does not by itself mean the movement feels like the reference. The prototype is done only after a manual motion review confirms the rail feel, sweep-past depth, and arrival beats are working.
 
 ## First Prototype Scope
 
