@@ -1,5 +1,5 @@
 #hud-root { position: fixed; inset: 0; pointer-events: none; z-index: 10; font-family: var(--font-mono); }
-.hud {
+.game-hud {
   position: absolute; left: 14px; right: 14px; bottom: 12px; pointer-events: auto;
   border: 1.5px solid var(--sky-line); border-radius: 8px;
   background: rgba(255, 255, 255, 0.92);
@@ -7,9 +7,9 @@
   display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 1rem;
   font-size: 0.8rem;
 }
-.hud-title { color: var(--ink); font-weight: 800; }
-.hud-status { color: var(--sky-text); }
-.hud-hints { justify-self: end; color: var(--ink); }
+.game-hud-title { color: var(--ink); font-weight: 800; }
+.game-hud-status { color: var(--sky-text); }
+.game-hud-hints { justify-self: end; color: var(--ink); }
 .hud-labels { position: absolute; inset: 0; pointer-events: none; }
 .node-label {
   position: absolute; top: 0; left: 0; opacity: 0; white-space: nowrap;

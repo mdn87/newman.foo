@@ -32,12 +32,12 @@ export class Hud {
     this.oldMode = oldMode;
     if (!oldMode) {
       root.innerHTML = `
-      <div class="hud">
-        <div class="hud-title">${esc(a.title)}</div>
-        <div class="hud-status">${esc(a.status)}</div>
-        <div class="hud-hints">WASD/Arrows thrust - Space/Shift vertical - drag/touch steer</div>
+      <div class="game-hud">
+        <div class="game-hud-title">${esc(a.title)}</div>
+        <div class="game-hud-status">${esc(a.status)}</div>
+        <div class="game-hud-hints">WASD/Arrows thrust - Space/Shift vertical - drag/touch steer</div>
       </div>`;
-      this.status = root.querySelector('.hud-status');
+      this.status = root.querySelector('.game-hud-status');
       return;
     }
     const nodes = a;

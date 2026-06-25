@@ -59,6 +59,7 @@ describe('Hud', () => {
     hud.setStatus('DRIFT READY');
     expect(root.innerHTML).toContain('newman.foo');
     expect(root.innerHTML).toContain('WASD');
+    expect(root.querySelector('.game-hud-status').textContent).toBe('DRIFT READY');
     expect(root.innerHTML).not.toContain('NODE');
     hud.dispose();
   });
