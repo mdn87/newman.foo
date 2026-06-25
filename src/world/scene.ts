@@ -33,7 +33,7 @@ function makeRing(radius: number, segments = 96): THREE.BufferGeometry {
 }
 
 export class WorldScene {
-  readonly renderer: THREE.WebGLRenderer;
+  private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.PerspectiveCamera(58, 1, 0.2, 2000);
   private readonly idle: boolean;
@@ -130,6 +130,10 @@ export class WorldScene {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+  }
+
+  get domElement(): HTMLCanvasElement {
+    return this.renderer.domElement;
   }
 
   setInput(input: PlayerInput): void {

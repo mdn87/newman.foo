@@ -1,6 +1,6 @@
 export type Surface = 'world' | 'list';
 
-export interface SurfaceInputs {
+interface SurfaceInputs {
   forced: Surface | null;
   reducedMotion: boolean;
   webgl: boolean;

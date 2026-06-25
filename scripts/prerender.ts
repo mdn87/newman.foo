@@ -16,7 +16,7 @@ export function prerender(template: string, site: typeof SITE): Record<string, s
   };
 }
 
-export function routeOutFile(dist: string, route: string): string {
+export function routeOutFile(route: string, dist: string): string {
   if (route !== '/') throw new Error(`only root route can be prerendered: ${route}`);
   return resolve(dist, 'index.html');
 }
@@ -35,7 +35,7 @@ if (isMain) {
   const template = readFileSync(join(dist, 'index.html'), 'utf8');
   const pages = prerender(template, SITE);
   for (const [route, html] of Object.entries(pages)) {
-    const out = routeOutFile(dist, route);
+    const out = routeOutFile(route, dist);
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(out, html);
     console.log(`prerendered ${route} -> ${out}`);

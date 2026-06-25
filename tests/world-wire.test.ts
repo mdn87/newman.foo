@@ -35,7 +35,7 @@ import { wireWorld } from '../src/world/wire';
 
 type Listener = (event: Record<string, unknown>) => void;
 type FakeScene = {
-  renderer: { domElement: HTMLCanvasElement };
+  domElement: HTMLCanvasElement;
   frame: ReturnType<typeof vi.fn>;
   setInput: ReturnType<typeof vi.fn>;
   steer: ReturnType<typeof vi.fn>;
@@ -139,7 +139,7 @@ function makeScene(canvas: HTMLCanvasElement): FakeScene {
     frame: vi.fn(),
     setInput: vi.fn(),
     steer: vi.fn(),
-    renderer: { domElement: canvas },
+    domElement: canvas,
   };
 }
 

@@ -26,12 +26,12 @@ describe('routeOutFile', () => {
   const dist = resolve('dist');
 
   it('maps the root route to index.html', () => {
-    expect(routeOutFile(dist, '/')).toBe(resolve(dist, 'index.html'));
+    expect(routeOutFile('/', dist)).toBe(resolve(dist, 'index.html'));
   });
 
   it('rejects non-root route paths', () => {
     for (const route of ['/missions/agent-ops', '/contact', 'missions/agent-ops']) {
-      expect(() => routeOutFile(dist, route)).toThrow();
+      expect(() => routeOutFile(route, dist)).toThrow();
     }
   });
 });

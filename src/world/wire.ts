@@ -5,7 +5,7 @@ import type { MountOpts, WorldCleanup } from './mount';
 const MAX_DT_SECONDS = 0.05;
 
 interface WiredScene {
-  renderer: { domElement: HTMLCanvasElement };
+  domElement: HTMLCanvasElement;
   frame(dt: number): void;
   setInput(input: PlayerInput): void;
   steer(delta: { dx: number; dy: number }): void;
@@ -13,7 +13,7 @@ interface WiredScene {
 
 export function wireWorld(scene: WiredScene, opts: MountOpts): WorldCleanup {
   const hud = new Hud(document.getElementById('hud-root')!, opts.site);
-  const canvas = scene.renderer.domElement;
+  const canvas = scene.domElement;
   const keys = new Set<string>();
   const axis = (positive: string[], negative: string[]) =>
     (positive.some((k) => keys.has(k)) ? 1 : 0)
