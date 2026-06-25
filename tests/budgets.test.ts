@@ -10,7 +10,7 @@ import { cssAssetRefs, homepageAssetRefs, measureBudgets } from '../scripts/chec
 let tempDirs: string[] = [];
 
 function makeDist() {
-  const dir = mkdtempSync(join(tmpdir(), 'notastro-budget-'));
+  const dir = mkdtempSync(join(tmpdir(), 'newman-foo-budget-'));
   tempDirs.push(dir);
   mkdirSync(join(dir, 'assets'), { recursive: true });
   mkdirSync(join(dir, '.vite'), { recursive: true });
@@ -85,7 +85,7 @@ describe('budget checker', () => {
       <img srcset="/assets/hero.png?size=1 1x, assets/hero@2x.webp#large 2x">
       <source srcset="assets/hero.avif 1x">
       <link href="assets/fonts/site.woff2?v=2">
-      <link href="https://notanastronaut.com/assets/patch.png">
+      <link href="https://newman.foo/assets/patch.png">
       <img src="/assets/inline.svg#icon">
     `)).toEqual(new Set([
       'assets/hero.png',
