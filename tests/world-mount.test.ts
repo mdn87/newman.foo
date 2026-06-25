@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NODES, SITE } from '../src/content/nodes';
+import { SITE } from '../src/content/nodes';
 
 const mocks = vi.hoisted(() => {
   const scene = { dispose: vi.fn(), resize: vi.fn() };
@@ -83,13 +83,32 @@ describe('mountWorld', () => {
     vi.unstubAllGlobals();
   });
 
+  it('constructs the world scene and wiring with the final options', async () => {
+    const { body } = installFakeDom();
+
+    await mountWorld({ site: SITE, reducedMotion: false });
+
+    expect(body.children).toHaveLength(1);
+    expect(mocks.WorldScene).toHaveBeenCalledWith(body.children[0], { idle: true });
+    expect(mocks.wireWorld).toHaveBeenCalledWith(mocks.scene, { site: SITE, reducedMotion: false });
+  });
+
+  it('passes idle false when reduced motion is enabled', async () => {
+    const { body } = installFakeDom();
+
+    await mountWorld({ site: SITE, reducedMotion: true });
+
+    expect(mocks.WorldScene).toHaveBeenCalledWith(body.children[0], { idle: false });
+    expect(mocks.wireWorld).toHaveBeenCalledWith(mocks.scene, { site: SITE, reducedMotion: true });
+  });
+
   it('removes the canvas when scene construction fails', async () => {
     const { body } = installFakeDom();
     mocks.WorldScene.mockImplementationOnce(() => {
       throw new Error('webgl unavailable');
     });
 
-    await expect(mountWorld({ nodes: NODES, site: SITE, reducedMotion: false }))
+    await expect(mountWorld({ site: SITE, reducedMotion: false }))
       .rejects.toThrow('webgl unavailable');
 
     expect(body.children).toEqual([]);
@@ -98,7 +117,7 @@ describe('mountWorld', () => {
   it('returns an idempotent cleanup for canvas, listener, scene, and wiring', async () => {
     const { body, addEventListener, removeEventListener } = installFakeDom();
 
-    const cleanup = await mountWorld({ nodes: NODES, site: SITE, reducedMotion: false });
+    const cleanup = await mountWorld({ site: SITE, reducedMotion: false });
 
     expect(body.children).toHaveLength(1);
     expect(addEventListener).toHaveBeenCalledTimes(1);
@@ -119,7 +138,7 @@ describe('mountWorld', () => {
       throw new Error('wire failed');
     });
 
-    await expect(mountWorld({ nodes: NODES, site: SITE, reducedMotion: false }))
+    await expect(mountWorld({ site: SITE, reducedMotion: false }))
       .rejects.toThrow('wire failed');
 
     expect(body.children).toEqual([]);

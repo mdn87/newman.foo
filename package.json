@@ -1,9 +1,9 @@
 {
-  "name": "notanastronaut",
+  "name": "newman-foo",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "notanastronaut.com — portfolio as a 3D line-art star map (not actually an astronaut)",
+  "description": "newman.foo — a tiny free-floating spiral galaxy prototype",
   "license": "MIT",
   "scripts": {
     "dev": "vite",

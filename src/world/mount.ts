@@ -1,8 +1,7 @@
-import type { NodeDef } from '../core/types';
 import type { SITE } from '../content/nodes';
 import { WorldScene } from './scene';
 
-export interface MountOpts { nodes: NodeDef[]; site: typeof SITE; reducedMotion: boolean; }
+export interface MountOpts { site: typeof SITE; reducedMotion: boolean; }
 export type WorldCleanup = () => void;
 
 export async function mountWorld(opts: MountOpts): Promise<WorldCleanup> {
@@ -15,7 +14,7 @@ export async function mountWorld(opts: MountOpts): Promise<WorldCleanup> {
   let onResize: (() => void) | null = null;
   let cleanupWire: WorldCleanup | null = null;
   try {
-    scene = new WorldScene(canvas, opts.nodes, { idle: !opts.reducedMotion });
+    scene = new WorldScene(canvas, { idle: !opts.reducedMotion });
     onResize = () => scene?.resize();
     document.body.prepend(canvas);
     addEventListener('resize', onResize);

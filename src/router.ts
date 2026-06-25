@@ -1,14 +1,6 @@
-import type { NodeDef } from './core/types';
-
 export type Surface = 'world' | 'list';
 
-export function routeToIndex(pathname: string, nodes: NodeDef[]): number | null {
-  const clean = pathname !== '/' && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
-  const i = nodes.findIndex((n) => n.route === clean);
-  return i === -1 ? null : i;
-}
-
-export interface SurfaceInputs {
+interface SurfaceInputs {
   forced: Surface | null;
   reducedMotion: boolean;
   webgl: boolean;
@@ -29,4 +21,8 @@ export function detectWebgl(): boolean {
   } catch {
     return false;
   }
+}
+
+export function isRootPath(pathname: string): boolean {
+  return pathname === '/' || pathname === '';
 }

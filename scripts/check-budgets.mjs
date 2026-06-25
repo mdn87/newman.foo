@@ -26,7 +26,7 @@ const MEDIA = new Set([
   '.woff',
   '.woff2',
 ]);
-const BASE_URL = 'https://notanastronaut.local/';
+const BASE_URL = 'https://newman.foo.local/';
 
 function* walk(dir) {
   for (const entry of readdirSync(dir).sort()) {

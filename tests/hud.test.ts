@@ -1,18 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
-import { NODES, SITE } from '../src/content/nodes';
+import { SITE } from '../src/content/nodes';
 import { Hud } from '../src/hud/hud';
 
 class FakeElement {
   innerHTML = '';
   textContent = '';
   private readonly children = new Map<string, FakeElement>();
-  private readonly attributes = new Map<string, string>();
 
   replaceChildren = vi.fn(() => {
     this.innerHTML = '';
     this.textContent = '';
     this.children.clear();
-    this.attributes.clear();
   });
 
   querySelector(selector: string): FakeElement {
@@ -22,29 +20,20 @@ class FakeElement {
     this.children.set(selector, child);
     return child;
   }
-
-  setAttribute(name: string, value: string): void {
-    this.attributes.set(name, value);
-  }
-
-  removeAttribute(name: string): void {
-    this.attributes.delete(name);
-  }
 }
 
 describe('Hud', () => {
-  it('clears the root it owns on dispose', () => {
+  it('setStatus updates the game HUD status', () => {
     const root = new FakeElement();
-    const hud = new Hud(root as unknown as HTMLElement, NODES, SITE);
+    const hud = new Hud(root as unknown as HTMLElement, SITE);
 
-    hud.setAtNode(0);
+    hud.setStatus('DRIFT READY');
 
-    expect(root.innerHTML).toContain('hud-panel');
-    expect(root.querySelector('.status').textContent).toContain('NODE 01/06');
+    expect(root.innerHTML).toContain('newman.foo');
+    expect(root.innerHTML).toContain('WASD');
+    expect(root.querySelector('.game-hud-status').textContent).toBe('DRIFT READY');
 
     hud.dispose();
-
     expect(root.replaceChildren).toHaveBeenCalledTimes(1);
-    expect(root.innerHTML).toBe('');
   });
 });
