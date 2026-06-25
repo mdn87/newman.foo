@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPlayer, steerPlayer, stepPlayer, type PlayerInput } from '../src/core/player';
+import { createPlayer, forwardVector, steerPlayer, stepPlayer, type PlayerInput } from '../src/core/player';
 
 const DT = 1 / 60;
 
@@ -11,6 +11,10 @@ function stepMany(input: PlayerInput, frames = 60, start = createPlayer()) {
 
 function length(v: { x: number; y: number; z: number }) {
   return Math.hypot(v.x, v.y, v.z);
+}
+
+function dot(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }) {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
 }
 
 describe('player motion', () => {
@@ -31,5 +35,20 @@ describe('player motion', () => {
     expect(player.yaw).toBeGreaterThan(0);
     expect(player.pitch).toBeGreaterThan(0);
     expect(player.pitch).toBeLessThan(Math.PI / 2);
+
+    const clamped = steerPlayer(createPlayer(), { dx: 0, dy: -10_000 });
+    expect(clamped.pitch).toBeLessThan(Math.PI / 2);
+    expect(clamped.pitch).toBeCloseTo(Math.PI * 0.42);
+  });
+
+  it('strafes perpendicular to forward after yaw', () => {
+    const start = { ...createPlayer(), yaw: Math.PI / 4 };
+    const player = stepMany({ forward: 0, right: 1, up: 0 }, 60, start);
+    const displacement = {
+      x: player.position.x - start.position.x,
+      y: player.position.y - start.position.y,
+      z: player.position.z - start.position.z,
+    };
+    expect(dot(displacement, forwardVector(start.yaw, start.pitch))).toBeCloseTo(0);
   });
 });

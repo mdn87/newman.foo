@@ -26,7 +26,7 @@ export function steerPlayer(player: PlayerState, delta: { dx: number; dy: number
 
 export function stepPlayer(player: PlayerState, input: PlayerInput, dt: number): PlayerState {
   const f = forwardVector(player.yaw, player.pitch);
-  const r = { x: Math.cos(player.yaw), y: 0, z: -Math.sin(player.yaw) };
+  const r = { x: Math.cos(player.yaw), y: 0, z: Math.sin(player.yaw) };
   const accel = {
     x: (f.x * input.forward + r.x * input.right) * THRUST,
     y: (f.y * input.forward + input.up) * THRUST,
