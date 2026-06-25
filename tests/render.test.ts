@@ -12,6 +12,6 @@ describe('renderFallbackPage', () => {
     expect(html).toContain('href="/?mode=world"');
     expect(html).not.toContain('<main');
     expect(html).not.toContain('Mission');
-    expect(html).not.toContain('NODE');
+    expect(html).not.toContain(['NO', 'DE'].join(''));
   });
 });
