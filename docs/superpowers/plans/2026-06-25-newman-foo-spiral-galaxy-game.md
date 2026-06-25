@@ -19,6 +19,7 @@
 - Delete `src/content/schema.ts` during integration.
 - Modify `src/fallback/render.ts`: add `renderFallbackPage`; keep old `renderListPage` until integration.
 - Modify `scripts/prerender.ts`: switch to root-only fallback prerender during integration.
+- Create `public/_redirects`: Cloudflare Pages SPA fallback so direct non-root URLs serve `index.html`.
 - Modify `src/router.ts`: keep `chooseSurface` / `detectWebgl`; remove `routeToIndex` during integration.
 - Modify `src/hud/hud.ts` and `src/hud/hud.css`: add minimal HUD while temporarily accepting the old constructor shape and no-op old methods.
 - Modify `src/world/scene.ts`, `src/world/mount.ts`, and `src/world/wire.ts` together in the integration task.
@@ -219,7 +220,7 @@ describe('makeSpiralGalaxy', () => {
     expect(g.planets).toHaveLength(12);
     expect(g.polyhedra).toHaveLength(18);
     expect(g.orbits).toHaveLength(20);
-    expect(g.arms).toHaveLength(8);
+    expect(g.armGuides).toHaveLength(8);
   });
 
   it('covers the required play volume', () => {
@@ -238,7 +239,7 @@ describe('makeSpiralGalaxy', () => {
   });
 
   it('marks three spiral arms among stars', () => {
-    expect(new Set(makeSpiralGalaxy(1981).stars.map((s) => s.arm))).toEqual(new Set([0, 1, 2]));
+    expect(new Set(makeSpiralGalaxy(1981).stars.map((s) => s.armIndex))).toEqual(new Set([0, 1, 2]));
   });
 });
 ```
@@ -258,21 +259,28 @@ Expected: FAIL because `makeSpiralGalaxy` does not exist.
 In `src/core/galaxy.ts`, keep existing `makeGalaxy`, `GalaxyKind`, `GalaxyField` etc. Add:
 
 ```ts
-export interface SpiralStar { pos: Vec3; size: number; arm: number; }
+export interface SpiralStar { pos: Vec3; size: number; armIndex: number; }
 export interface SpiralPlanet { pos: Vec3; radius: number; orbitRadius: number; color: string; }
 export interface SpiralPolyhedron { pos: Vec3; radius: number; spin: Vec3; }
 export interface SpiralOrbit { center: Vec3; radius: number; tilt: number; }
-export interface SpiralArmLine { points: Vec3[]; }
+export interface SpiralArmGuide { points: Vec3[]; }
 export interface SpiralGalaxy {
   stars: SpiralStar[];
   planets: SpiralPlanet[];
   polyhedra: SpiralPolyhedron[];
   orbits: SpiralOrbit[];
-  arms: SpiralArmLine[];
+  armGuides: SpiralArmGuide[];
 }
 ```
 
 Implement `makeSpiralGalaxy(seed: number): SpiralGalaxy` using `mulberry32`, exact default counts, three arms, and a play volume spanning at least the spec dimensions. Keep it pure and deterministic. Do not remove old `makeGalaxy` yet.
+
+Generation must emit exactly N items by construction, not by rejection sampling
+with `continue`/drop behavior. Use explicit half-extents with margin, such as
+`x/z` radii reaching at least `125` and vertical spread reaching at least `+/-45`
+across planets/polyhedra, so the volume test has headroom beyond `160 x 80 x
+220`. `armIndex` is the structural 0..2 spiral arm; `armGuides` are the 8 drawn
+guide curves.
 
 - [ ] **Step 4: Verify task**
 
@@ -361,8 +369,13 @@ Expected: FAIL because new APIs are missing.
 In `src/fallback/render.ts`, keep `renderListPage` and add:
 
 ```ts
-interface FallbackSite {
+// Shared site-metadata shape for the fallback page AND the minimal game HUD.
+// `origin` is included so the Task 3 test literal `{ title, origin, status, fallback }`
+// and the final reduced SITE (Task 4) both satisfy it without TS2353 excess-property
+// errors. Exported so the new-mode Hud constructor (Step 5) can reuse it.
+export interface FallbackSite {
   title: string;
+  origin: string;
   status: string;
   fallback: string;
 }
@@ -385,11 +398,34 @@ Update `Hud` so it accepts either old `(root, nodes, site)` or new `(root, site)
 <div class="hud">
   <div class="hud-title">newman.foo</div>
   <div class="hud-status">DRIFT READY</div>
-  <div class="hud-hints">WASD/Arrows thrust - Space/Shift vertical - drag steer</div>
+  <div class="hud-hints">WASD/Arrows thrust - Space/Shift vertical - drag/touch steer</div>
 </div>
 ```
 
-Add `setStatus(text: string)`. Keep `setAtNode`, `setTransit`, and `setLabels` as old behavior or no-ops until integration removes callers.
+Add `setStatus(text: string)`. Keep `setAtNode`, `setTransit`, `setLabels`, and
+`setOverview` as old behavior or no-ops until integration removes callers
+(`wire.ts:65` still calls `setOverview` at this checkpoint).
+
+Dispatch the two shapes with **explicit overloads** so both call styles keep full
+type inference and the existing 3-arg callers (`wire.ts:15`, `tests/hud.test.ts`,
+`tests/world-wire.test.ts`) keep compiling:
+
+```ts
+constructor(root: HTMLElement, nodes: NodeDef[], site: typeof SITE);   // old mode
+constructor(root: HTMLElement, site: FallbackSite);                    // new game mode
+constructor(root: HTMLElement, a: NodeDef[] | FallbackSite, b?: typeof SITE) {
+  const oldMode = Array.isArray(a);
+  // ...only run the `site.joke` read in old mode; the new FallbackSite has no `joke`.
+}
+```
+
+Type the new-mode `site` param as the exported `FallbackSite` from
+`fallback/render.ts` (it now includes `origin`), **not** `typeof SITE`: at the
+Task 3 checkpoint `SITE` is still the old `{ title, origin, joke }` shape, so the
+test literal `{ title, origin, status, fallback }` matches only `FallbackSite`.
+The final reduced `SITE` (Task 4) structurally satisfies `FallbackSite`, so
+`new Hud(root, SITE)` typechecks after integration too. Guard the existing
+`site.joke` access (current `hud.ts:36`) so it runs only in old mode.
 
 - [ ] **Step 6: Verify task**
 
@@ -415,6 +451,7 @@ git commit -m "feat: add game fallback and hud compatibility"
 
 **Files:**
 - Modify: `src/content/nodes.ts`, `src/fallback/render.ts`, `src/router.ts`, `scripts/prerender.ts`, `src/main.ts`
+- Create: `public/_redirects`
 - Modify: `src/hud/hud.ts`, `src/hud/hud.css`
 - Modify: `src/world/scene.ts`, `src/world/mount.ts`, `src/world/wire.ts`
 - Modify: `src/core/galaxy.ts`, `src/core/types.ts`
@@ -454,6 +491,7 @@ Assert:
 - `wheel` and `click` never call `history.pushState`.
 - passive pointer move without active drag does not call `steer`.
 - pointer drag calls `steer({ dx, dy })`.
+- `pointerType: 'touch'` drag also calls `steer`.
 - cleanup removes all listeners and disposes HUD.
 
 Define the plan's missing input helper in production:
@@ -463,6 +501,43 @@ const axis = (positive: string[], negative: string[]) =>
   (positive.some((k) => keys.has(k)) ? 1 : 0)
   - (negative.some((k) => keys.has(k)) ? 1 : 0);
 ```
+
+Embed at least this drag-state coverage in `tests/world-wire.test.ts`:
+
+```ts
+it('steers only while pointer drag is active', () => {
+  const { canvas, canvasTarget } = installDom();
+  const scene = makeScene(canvas);
+  const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
+
+  canvasTarget.dispatch('pointermove', { clientX: 20, clientY: 30, pointerType: 'mouse' });
+  expect(scene.steer).not.toHaveBeenCalled();
+
+  canvasTarget.dispatch('pointerdown', { clientX: 20, clientY: 30, pointerType: 'mouse' });
+  canvasTarget.dispatch('pointermove', { clientX: 35, clientY: 18, pointerType: 'mouse' });
+  expect(scene.steer).toHaveBeenLastCalledWith({ dx: 15, dy: -12 });
+
+  canvasTarget.dispatch('pointerup', { clientX: 35, clientY: 18, pointerType: 'mouse' });
+  canvasTarget.dispatch('pointermove', { clientX: 55, clientY: 28, pointerType: 'mouse' });
+  expect(scene.steer).toHaveBeenCalledTimes(1);
+  cleanup();
+});
+
+it('supports touch drag steering through pointer events', () => {
+  const { canvas, canvasTarget } = installDom();
+  const scene = makeScene(canvas);
+  const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
+
+  canvasTarget.dispatch('pointerdown', { clientX: 5, clientY: 5, pointerType: 'touch' });
+  canvasTarget.dispatch('pointermove', { clientX: 10, clientY: 8, pointerType: 'touch' });
+  expect(scene.steer).toHaveBeenCalledWith({ dx: 5, dy: 3 });
+  cleanup();
+});
+```
+
+Production drag state should be a simple `dragging` boolean plus the last pointer
+coordinates. Set `dragging = true` on pointerdown, call `scene.steer({ dx, dy })`
+only while dragging on pointermove, and clear it on pointerup/pointercancel.
 
 - [ ] **Step 3: Run targeted tests and see them fail**
 
@@ -488,6 +563,13 @@ export const SITE = {
 };
 ```
 
+> **Single-commit coordination (typecheck):** dropping `joke` from `SITE` breaks
+> every remaining `site.joke` reader in the same commit. Within this step also
+> remove the old-mode `site.joke` read in `src/hud/hud.ts` (line ~36) and the
+> `renderListPage` joke footer in `src/fallback/render.ts`, and rewrite any test
+> asserting the joke string (`tests/render.test.ts`). The Step 8 `rg` guard must
+> include `joke` (it does below) or this slips past the dead-reference sweep.
+
 In `src/router.ts`, export only `Surface`, `chooseSurface`, `detectWebgl`, and:
 
 ```ts
@@ -498,7 +580,33 @@ export function isRootPath(pathname: string): boolean {
 
 - [ ] **Step 5: Switch prerender to root-only fallback**
 
-Use `renderFallbackPage(SITE)`, emit only `/`, and reject non-root paths in `routeOutFile`. Keep HTML escaping for title/canonical where needed. The built `dist/index.html` is the only prerendered page; direct non-root paths are handled by the hosting fallback to `/index.html`, so runtime `isRootPath` must display fallback/list for non-root pathnames.
+Rewrite `scripts/prerender.ts` production code explicitly to:
+
+```ts
+export function prerender(template: string, site: typeof SITE): Record<string, string> {
+  return {
+    '/': template
+      .replace(/<title>[^<]*<\/title>/, `<title>${esc(site.title)}</title>`)
+      .replace(/<link rel="canonical" href="[^"]*" \/>/, `<link rel="canonical" href="${esc(`${site.origin}/`)}" />`)
+      .replace('<!--SSG-->', renderFallbackPage(site)),
+  };
+}
+```
+
+Drop imports of `NodeDef`, `NODES`, `validateContent`, and `renderListPage`.
+Use `renderFallbackPage(SITE)`, emit only `/`, and reject non-root paths in
+`routeOutFile`. Keep HTML escaping for title/canonical where needed.
+
+Create `public/_redirects` with:
+
+```text
+/* /index.html 200
+```
+
+That makes direct non-root URLs work on Cloudflare Pages. The built
+`dist/index.html` is still the only prerendered HTML page; direct non-root paths
+are served through `_redirects`, and runtime `isRootPath` must display
+fallback/list for non-root pathnames.
 
 - [ ] **Step 6: Replace main boot path**
 
@@ -531,7 +639,7 @@ Render:
 - planets with existing galaxy SVG sprites or simple line meshes
 - polyhedra with `THREE.DodecahedronGeometry` + wireframe material
 - orbit rings with line geometry
-- arm lines with translucent cyan lines
+- `armGuides` with translucent cyan lines
 - avatar as `src/assets/astronaut-alpha.png`, billboarded in front of camera with `depthTest = false`
 
 `src/world/mount.ts` constructs `new WorldScene(canvas, { idle: !opts.reducedMotion })`.
@@ -556,8 +664,14 @@ update the tests to match the final API. Do not leave the old corridor
 `pieces`/`arcs` assertions in place.
 
 ```bash
-rg -n "NodeDef|makeGalaxy|TravelMachine|routeToIndex|FlightPath|WheelIntent|OVERVIEW_INDEX|setAtNode|setTransit|renderListPage|validateContent" src tests scripts
+rg -n "NodeDef|TravelState|makeGalaxy|GalaxyField|GalaxyKind|GalaxyPiece|GalaxyArc|TravelMachine|OVERVIEW_INDEX|routeToIndex|FlightPath|nodeParam|overviewPose|WheelIntent|makeBodies|setAtNode|setTransit|setOverview|setLabels|renderListPage|validateContent|joke|\bNODES\b" src scripts
 ```
+
+Scope to `src scripts` (plus surviving tests) — the deleted test files
+(`parallax`/`overview`/`path`/`travel`/`intent`/`replay`/`content`) legitimately
+reference some of these symbols, so a repo-wide grep would false-positive on
+doomed files. `npm run typecheck` (Step 9) is the real gate; this grep is a
+completeness aid. Note `NodeDef` does **not** match `NODES`, so both are listed.
 
 Expected: no live references. If references remain, update them before proceeding.
 
@@ -575,7 +689,7 @@ Expected: PASS.
 - [ ] **Step 10: Commit**
 
 ```bash
-git add src tests scripts
+git add src tests scripts public/_redirects
 git commit -m "refactor: replace portfolio travel with galaxy game runtime"
 ```
 
@@ -656,6 +770,8 @@ Use stable canvas checks:
 - Hold `w` for 800 ms, take a second screenshot, and assert at least 0.5 percent of sampled pixels changed by a per-channel sum greater than 30.
 - Test `/?mode=list` shows fallback and `Enter world`.
 - Test `/missions/agent-ops` shows fallback and does not show old mission text.
+- Test `/` in world mode does not show the fallback opt-in link.
+- Test the avatar by checking that a small forward/central canvas region contains non-white pixels after boot, or by exposing a stable `data-world-ready`/debug marker from the scene mount if pixel position proves too brittle.
 
 Keep the pixel sampling helper inside `e2e/smoke.spec.ts` so the criteria are self-contained.
 
