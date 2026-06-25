@@ -1,16 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NODES } from '../src/content/nodes';
-import { chooseSurface, routeToIndex } from '../src/router';
-
-describe('routeToIndex', () => {
-  it('maps every route to its node', () => {
-    NODES.forEach((n, i) => expect(routeToIndex(n.route, NODES)).toBe(i));
-  });
-
-  it('unknown routes map to null', () => {
-    expect(routeToIndex('/nope', NODES)).toBe(null);
-  });
-});
+import { chooseSurface, isRootPath } from '../src/router';
 
 describe('chooseSurface (authoritative reduced-motion rule)', () => {
   it('forced mode always wins', () => {
@@ -28,5 +17,13 @@ describe('chooseSurface (authoritative reduced-motion rule)', () => {
 
   it('otherwise world', () => {
     expect(chooseSurface({ forced: null, reducedMotion: false, webgl: true })).toBe('world');
+  });
+});
+
+describe('isRootPath', () => {
+  it('recognizes the root route only', () => {
+    expect(isRootPath('/')).toBe(true);
+    expect(isRootPath('')).toBe(true);
+    expect(isRootPath('/missions/agent-ops')).toBe(false);
   });
 });

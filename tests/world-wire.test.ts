@@ -1,38 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { NODES, SITE } from '../src/content/nodes';
-import type { WorldScene } from '../src/world/scene';
+import { SITE } from '../src/content/nodes';
 
 const hudMocks = vi.hoisted(() => {
   const instances: Array<{
     root: unknown;
-    nodes: unknown;
     site: unknown;
-    setAtNode: ReturnType<typeof vi.fn>;
-    setTransit: ReturnType<typeof vi.fn>;
-    setLabels: ReturnType<typeof vi.fn>;
+    setStatus: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
   }> = [];
 
   const Hud = vi.fn(function (
     this: {
       root: unknown;
-      nodes: unknown;
       site: unknown;
-      setAtNode: ReturnType<typeof vi.fn>;
-      setTransit: ReturnType<typeof vi.fn>;
-      setLabels: ReturnType<typeof vi.fn>;
+      setStatus: ReturnType<typeof vi.fn>;
       dispose: ReturnType<typeof vi.fn>;
     },
     root: unknown,
-    nodes: unknown,
     site: unknown,
   ) {
     this.root = root;
-    this.nodes = nodes;
     this.site = site;
-    this.setAtNode = vi.fn();
-    this.setTransit = vi.fn();
-    this.setLabels = vi.fn();
+    this.setStatus = vi.fn();
     this.dispose = vi.fn();
     instances.push(this);
   });
@@ -45,6 +34,12 @@ vi.mock('../src/hud/hud', () => ({ Hud: hudMocks.Hud }));
 import { wireWorld } from '../src/world/wire';
 
 type Listener = (event: Record<string, unknown>) => void;
+type FakeScene = {
+  renderer: { domElement: HTMLCanvasElement };
+  frame: ReturnType<typeof vi.fn>;
+  setInput: ReturnType<typeof vi.fn>;
+  steer: ReturnType<typeof vi.fn>;
+};
 
 function installAnimationFrame() {
   const callbacks = new Map<number, FrameRequestCallback>();
@@ -116,7 +111,7 @@ function installDom(pathname = '/', search = '?mode=world') {
   const location = { pathname, search };
   const history = {
     pushState: vi.fn((_state: unknown, _title: string, url: string) => {
-      const parsed = new URL(url, 'https://notanastronaut.com');
+      const parsed = new URL(url, 'https://newman.foo');
       location.pathname = parsed.pathname;
       location.search = parsed.search;
     }),
@@ -139,13 +134,13 @@ function installDom(pathname = '/', search = '?mode=world') {
   return { canvas, canvasTarget, history, hudRoot, location, windowTarget };
 }
 
-function makeScene(canvas: HTMLCanvasElement): WorldScene {
+function makeScene(canvas: HTMLCanvasElement): FakeScene {
   return {
     frame: vi.fn(),
-    pickNode: vi.fn(),
-    labels: vi.fn(() => []),
+    setInput: vi.fn(),
+    steer: vi.fn(),
     renderer: { domElement: canvas },
-  } as unknown as WorldScene;
+  };
 }
 
 describe('wireWorld', () => {
@@ -158,121 +153,102 @@ describe('wireWorld', () => {
     vi.unstubAllGlobals();
   });
 
-  it('starts at the current route and renders that node on the first frame', () => {
+  it('keydown and keyup update input on frame', () => {
     const { callbacks } = installAnimationFrame();
-    const { canvas, history, hudRoot } = installDom('/missions/maker-bay', '?mode=world');
+    const { canvas, windowTarget } = installDom();
     const scene = makeScene(canvas);
 
-    const cleanup = wireWorld(scene, { nodes: NODES, site: SITE, reducedMotion: false });
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
 
-    expect(hudMocks.Hud).toHaveBeenCalledWith(hudRoot, NODES, SITE);
-    expect(hudMocks.instances[0]!.setAtNode).toHaveBeenCalledWith(3);
-    expect(history.pushState).not.toHaveBeenCalled();
-
+    windowTarget.dispatch('keydown', { key: 'w' });
+    windowTarget.dispatch('keydown', { key: 'ArrowRight' });
+    windowTarget.dispatch('keydown', { key: ' ' });
     runFrame(callbacks, 1, performance.now() + 16);
 
-    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), { kind: 'atNode', index: 3 });
+    expect(scene.setInput).toHaveBeenLastCalledWith({ forward: 1, right: 1, up: 1 });
 
-    cleanup();
-  });
-
-  it('turns a wheel gesture into one transit and pushes the arrival route with the current query string', () => {
-    const { callbacks } = installAnimationFrame();
-    const { canvas, history, windowTarget } = installDom('/', '?mode=world');
-    const scene = makeScene(canvas);
-
-    const cleanup = wireWorld(scene, { nodes: NODES, site: SITE, reducedMotion: true });
-
-    windowTarget.dispatch('wheel', { deltaY: 120 });
-
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenCalledWith(1);
-
-    runFrame(callbacks, 1, performance.now() + 16);
-
-    expect(hudMocks.instances[0]!.setAtNode).toHaveBeenLastCalledWith(1);
-    expect(history.pushState).toHaveBeenCalledWith(null, '', '/missions/agent-ops?mode=world');
-    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), { kind: 'atNode', index: 1 });
-
-    windowTarget.dispatch('wheel', { deltaY: 120 });
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenCalledTimes(1);
-
-    cleanup();
-  });
-
-  it('wires keyboard, touch swipe, canvas click, and popstate navigation', () => {
-    const { callbacks } = installAnimationFrame();
-    const { canvas, canvasTarget, history, location, windowTarget } = installDom('/', '?mode=world');
-    const scene = makeScene(canvas);
-    vi.mocked(scene.pickNode).mockReturnValue(3);
-
-    const cleanup = wireWorld(scene, { nodes: NODES, site: SITE, reducedMotion: true });
-
-    windowTarget.dispatch('keydown', { key: 'PageDown' });
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenLastCalledWith(1);
-    runFrame(callbacks, 1, performance.now() + 16);
-
-    windowTarget.dispatch('pointerdown', { pointerType: 'touch', clientY: 100 });
-    windowTarget.dispatch('pointerup', { pointerType: 'touch', clientY: 170 });
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenLastCalledWith(0);
+    windowTarget.dispatch('keyup', { key: 'w' });
+    windowTarget.dispatch('keyup', { key: 'ArrowRight' });
+    windowTarget.dispatch('keyup', { key: ' ' });
+    windowTarget.dispatch('keydown', { key: 'Shift' });
     runFrame(callbacks, 2, performance.now() + 32);
 
-    canvasTarget.dispatch('click', { clientX: 24, clientY: 48 });
-    expect(scene.pickNode).toHaveBeenCalledWith(24, 48);
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenLastCalledWith(3);
-    runFrame(callbacks, 3, performance.now() + 48);
-
-    location.pathname = '/missions/agent-ops';
-    windowTarget.dispatch('popstate');
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenLastCalledWith(1);
-    runFrame(callbacks, 4, performance.now() + 64);
-
-    expect(hudMocks.instances[0]!.setAtNode).toHaveBeenLastCalledWith(1);
-    expect(history.pushState).toHaveBeenCalledTimes(3);
-
+    expect(scene.setInput).toHaveBeenLastCalledWith({ forward: 0, right: 0, up: -1 });
     cleanup();
   });
 
-  it('syncs popstate during an in-flight transit without re-pushing the stale destination', () => {
+  it('wheel and click never navigate', () => {
     const { callbacks } = installAnimationFrame();
-    const { canvas, history, location, windowTarget } = installDom('/', '?mode=world');
+    const { canvas, canvasTarget, history, windowTarget } = installDom();
     const scene = makeScene(canvas);
 
-    const cleanup = wireWorld(scene, { nodes: NODES, site: SITE, reducedMotion: true });
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
 
-    windowTarget.dispatch('keydown', { key: 'PageDown' });
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenLastCalledWith(1);
-
-    location.pathname = '/contact';
-    windowTarget.dispatch('popstate');
-
-    expect(hudMocks.instances[0]!.setTransit).toHaveBeenLastCalledWith(5);
-
+    windowTarget.dispatch('wheel', { deltaY: 120 });
+    canvasTarget.dispatch('click', { clientX: 24, clientY: 48 });
     runFrame(callbacks, 1, performance.now() + 16);
 
-    expect(hudMocks.instances[0]!.setAtNode).toHaveBeenLastCalledWith(5);
     expect(history.pushState).not.toHaveBeenCalled();
-    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), { kind: 'atNode', index: 5 });
-
     cleanup();
   });
 
-  it('returns an idempotent cleanup that cancels raf and removes every registered listener', () => {
+  it('passive pointer move without active drag does not steer', () => {
+    installAnimationFrame();
+    const { canvas, canvasTarget } = installDom();
+    const scene = makeScene(canvas);
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
+
+    canvasTarget.dispatch('pointermove', { clientX: 20, clientY: 30, pointerType: 'mouse' });
+
+    expect(scene.steer).not.toHaveBeenCalled();
+    cleanup();
+  });
+
+  it('steers only while pointer drag is active', () => {
+    const { canvas, canvasTarget } = installDom();
+    installAnimationFrame();
+    const scene = makeScene(canvas);
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
+
+    canvasTarget.dispatch('pointermove', { clientX: 20, clientY: 30, pointerType: 'mouse' });
+    expect(scene.steer).not.toHaveBeenCalled();
+
+    canvasTarget.dispatch('pointerdown', { clientX: 20, clientY: 30, pointerType: 'mouse' });
+    canvasTarget.dispatch('pointermove', { clientX: 35, clientY: 18, pointerType: 'mouse' });
+    expect(scene.steer).toHaveBeenLastCalledWith({ dx: 15, dy: -12 });
+
+    canvasTarget.dispatch('pointerup', { clientX: 35, clientY: 18, pointerType: 'mouse' });
+    canvasTarget.dispatch('pointermove', { clientX: 55, clientY: 28, pointerType: 'mouse' });
+    expect(scene.steer).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
+  it('supports touch drag steering through pointer events', () => {
+    const { canvas, canvasTarget } = installDom();
+    installAnimationFrame();
+    const scene = makeScene(canvas);
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
+
+    canvasTarget.dispatch('pointerdown', { clientX: 5, clientY: 5, pointerType: 'touch' });
+    canvasTarget.dispatch('pointermove', { clientX: 10, clientY: 8, pointerType: 'touch' });
+    expect(scene.steer).toHaveBeenCalledWith({ dx: 5, dy: 3 });
+    cleanup();
+  });
+
+  it('returns an idempotent cleanup that cancels raf, removes listeners, and disposes HUD', () => {
     const { callbacks, cancelAnimationFrame, requestAnimationFrame } = installAnimationFrame();
-    const { canvas, canvasTarget, windowTarget } = installDom();
+    const { canvas, canvasTarget, hudRoot, windowTarget } = installDom();
     const scene = makeScene(canvas);
 
-    const cleanup = wireWorld(scene, { nodes: NODES, site: SITE, reducedMotion: false });
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
 
+    expect(hudMocks.Hud).toHaveBeenCalledWith(hudRoot, SITE);
     expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
-    expect(windowTarget.addEventListener).toHaveBeenCalledWith(
-      'wheel',
-      expect.any(Function),
-      expect.objectContaining({ passive: true }),
-    );
-    expect(windowTarget.listenerCount()).toBe(5);
-    expect(canvasTarget.listenerCount()).toBe(1);
+    expect(windowTarget.listenerCount()).toBe(3);
+    expect(canvasTarget.listenerCount()).toBe(5);
 
     runFrame(callbacks, 1, performance.now() + 16);
+    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number));
     expect(requestAnimationFrame).toHaveBeenCalledTimes(2);
 
     cleanup();
