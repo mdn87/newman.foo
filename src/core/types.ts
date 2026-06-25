@@ -14,3 +14,16 @@ export interface NodeDef {
 export type TravelState =
   | { kind: 'atNode'; index: number }
   | { kind: 'inTransit'; from: number; to: number; t: number }; // t in [0,1], linear
+
+export interface PlayerState {
+  position: Vec3;
+  velocity: Vec3;
+  yaw: number;
+  pitch: number;
+}
+
+export interface PlayerInput {
+  forward: number;
+  right: number;
+  up: number;
+}
