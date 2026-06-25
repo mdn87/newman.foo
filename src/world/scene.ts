@@ -171,9 +171,9 @@ export class WorldScene {
           object.material.rotation += dt * (object.userData.spin as number);
         } else {
           const spin = object.userData.spin as Vec3 | undefined;
-          object.rotation.x += spin?.x ?? dt * 0.1;
-          object.rotation.y += spin?.y ?? dt * 0.12;
-          object.rotation.z += spin?.z ?? dt * 0.08;
+          object.rotation.x += (spin?.x ?? 0.1) * dt;
+          object.rotation.y += (spin?.y ?? 0.12) * dt;
+          object.rotation.z += (spin?.z ?? 0.08) * dt;
         }
       }
     }
@@ -182,18 +182,25 @@ export class WorldScene {
   }
 
   dispose(): void {
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    const textures = new Set<THREE.Texture>();
+
     this.scene.traverse((o) => {
       const geometry = (o as { geometry?: THREE.BufferGeometry }).geometry;
-      if (geometry) geometry.dispose();
+      if (geometry) geometries.add(geometry);
 
       const material = (o as { material?: THREE.Material | THREE.Material[] }).material;
-      const materials = Array.isArray(material) ? material : material ? [material] : [];
-      for (const mm of materials) {
+      const objectMaterials = Array.isArray(material) ? material : material ? [material] : [];
+      for (const mm of objectMaterials) {
         const map = (mm as THREE.Material & { map?: THREE.Texture }).map;
-        if (map) map.dispose();
-        mm.dispose();
+        if (map) textures.add(map);
+        materials.add(mm);
       }
     });
+    for (const geometry of geometries) geometry.dispose();
+    for (const texture of textures) texture.dispose();
+    for (const material of materials) material.dispose();
     this.renderer.dispose();
   }
 }

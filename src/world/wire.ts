@@ -59,6 +59,8 @@ export function wireWorld(scene: WiredScene, opts: MountOpts): WorldCleanup {
   canvas.addEventListener('pointermove', onPointermove);
   canvas.addEventListener('pointerup', stopDrag);
   canvas.addEventListener('pointercancel', stopDrag);
+  addEventListener('pointerup', stopDrag);
+  addEventListener('pointercancel', stopDrag);
 
   let last = performance.now();
   let frameId = 0;
@@ -87,6 +89,8 @@ export function wireWorld(scene: WiredScene, opts: MountOpts): WorldCleanup {
     canvas.removeEventListener('pointermove', onPointermove);
     canvas.removeEventListener('pointerup', stopDrag);
     canvas.removeEventListener('pointercancel', stopDrag);
+    removeEventListener('pointerup', stopDrag);
+    removeEventListener('pointercancel', stopDrag);
     hud.dispose();
   };
 }

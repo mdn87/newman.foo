@@ -6,12 +6,12 @@ export interface FallbackSite {
 }
 
 export function renderFallbackPage(site: FallbackSite): string {
-  return `<main class="fallback">
-  <h1>${esc(site.title)}</h1>
+  return `<section class="fallback-shell" aria-labelledby="fallback-title">
+  <h1 id="fallback-title">${esc(site.title)}</h1>
   <p class="fallback-status">${esc(site.status)}</p>
   <p>${esc(site.fallback)}</p>
   <p><a href="/?mode=world">Enter world mode</a></p>
-</main>`;
+</section>`;
 }
 
 function esc(s: string): string {

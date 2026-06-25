@@ -16,7 +16,9 @@ describe('prerender', () => {
     const pages = prerender(TEMPLATE, SITE);
 
     expect(pages['/']).toContain('<title>newman.foo</title>');
-    expect(pages['/']).toContain('<h1>newman.foo</h1>');
+    expect(pages['/']).toContain('<h1 id="fallback-title">newman.foo</h1>');
+    expect(pages['/']).toContain('<main id="content"><section class="fallback-shell"');
+    expect(pages['/']).not.toContain('<main id="content"><main');
     expect(pages['/']).toContain('href="https://newman.foo/"');
     expect(pages['/']).not.toContain('<!--SSG-->');
   });

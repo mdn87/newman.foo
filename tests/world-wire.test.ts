@@ -223,6 +223,23 @@ describe('wireWorld', () => {
     cleanup();
   });
 
+  it('stops steering when pointerup happens outside the canvas', () => {
+    const { canvas, canvasTarget, windowTarget } = installDom();
+    installAnimationFrame();
+    const scene = makeScene(canvas);
+    const cleanup = wireWorld(scene, { site: SITE, reducedMotion: false });
+
+    canvasTarget.dispatch('pointerdown', { clientX: 20, clientY: 30, pointerType: 'mouse' });
+    canvasTarget.dispatch('pointermove', { clientX: 35, clientY: 18, pointerType: 'mouse' });
+    expect(scene.steer).toHaveBeenCalledTimes(1);
+
+    windowTarget.dispatch('pointerup', { clientX: 35, clientY: 18, pointerType: 'mouse' });
+    canvasTarget.dispatch('pointermove', { clientX: 55, clientY: 28, pointerType: 'mouse' });
+
+    expect(scene.steer).toHaveBeenCalledTimes(1);
+    cleanup();
+  });
+
   it('supports touch drag steering through pointer events', () => {
     const { canvas, canvasTarget } = installDom();
     installAnimationFrame();
@@ -244,7 +261,7 @@ describe('wireWorld', () => {
 
     expect(hudMocks.Hud).toHaveBeenCalledWith(hudRoot, SITE);
     expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
-    expect(windowTarget.listenerCount()).toBe(3);
+    expect(windowTarget.listenerCount()).toBe(5);
     expect(canvasTarget.listenerCount()).toBe(5);
 
     runFrame(callbacks, 1, performance.now() + 16);
