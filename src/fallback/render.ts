@@ -1,6 +1,13 @@
 import type { NodeDef } from '../core/types';
 import type { SITE } from '../content/nodes';
 
+export interface FallbackSite {
+  title: string;
+  origin: string;
+  status: string;
+  fallback: string;
+}
+
 /**
  * The canonical HTML rendering of the content model. Used at runtime for
  * list mode AND at build time by scripts/prerender.ts (it is the SSG).
@@ -28,6 +35,15 @@ export function renderListPage(nodes: NodeDef[], site: typeof SITE): string {
   </nav>
 ${sections}
 <footer><p class="joke">${esc(site.joke)}</p></footer>`;
+}
+
+export function renderFallbackPage(site: FallbackSite): string {
+  return `<main class="fallback">
+  <h1>${esc(site.title)}</h1>
+  <p class="fallback-status">${esc(site.status)}</p>
+  <p>${esc(site.fallback)}</p>
+  <p><a href="/?mode=world">Enter world mode</a></p>
+</main>`;
 }
 
 function esc(s: string): string {

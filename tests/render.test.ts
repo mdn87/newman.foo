@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { NODES, SITE } from '../src/content/nodes';
-import { renderListPage } from '../src/fallback/render';
+import { renderFallbackPage, renderListPage } from '../src/fallback/render';
 import type { NodeDef } from '../src/core/types';
 
 describe('renderListPage', () => {
@@ -55,5 +55,20 @@ describe('renderListPage', () => {
     expect(syntheticHtml).toContain('<em>Tag &lt;line&gt; &amp; &quot;quote&quot;</em>');
     expect(syntheticHtml).toContain('<footer><p class="joke">Joke &lt;&amp; &quot;quote&quot;&gt;</p></footer>');
     expect(syntheticHtml).toContain('<p><strong>trusted</strong> & raw</p>');
+  });
+});
+
+describe('renderFallbackPage', () => {
+  it('renders minimal newman.foo fallback copy and world opt-in', () => {
+    const html = renderFallbackPage({
+      title: 'newman.foo',
+      origin: 'https://newman.foo',
+      status: 'spiral drift prototype',
+      fallback: 'Reduced-motion and no-WebGL visitors start here.',
+    });
+    expect(html).toContain('<h1>newman.foo</h1>');
+    expect(html).toContain('href="/?mode=world"');
+    expect(html).not.toContain('Mission');
+    expect(html).not.toContain('NODE');
   });
 });

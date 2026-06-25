@@ -47,4 +47,19 @@ describe('Hud', () => {
     expect(root.replaceChildren).toHaveBeenCalledTimes(1);
     expect(root.innerHTML).toBe('');
   });
+
+  it('can render the minimal game HUD', () => {
+    const root = new FakeElement();
+    const hud = new Hud(root as unknown as HTMLElement, {
+      title: 'newman.foo',
+      origin: 'https://newman.foo',
+      status: 'spiral drift prototype',
+      fallback: 'Fallback copy',
+    });
+    hud.setStatus('DRIFT READY');
+    expect(root.innerHTML).toContain('newman.foo');
+    expect(root.innerHTML).toContain('WASD');
+    expect(root.innerHTML).not.toContain('NODE');
+    hud.dispose();
+  });
 });
