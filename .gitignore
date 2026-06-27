@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.DS_Store
+test-results/
+playwright-report/
+.superpowers/
+.worktrees/
+
+# Old notanastronaut.net site, kept locally as reference only — never commit
+notanastronaut.net/
+notanastronaut.net.zip
