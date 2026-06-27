@@ -6,7 +6,7 @@ import type { WorldScene } from './scene';
 import type { MountOpts, WorldCleanup } from './mount';
 
 const MAX_DT_SECONDS = 0.05;
-const TRANSIT_SECONDS = 1.5;
+const TRANSIT_SECONDS = 1.9; // longer arc so the jet-booster glide reads
 const SWIPE_THRESHOLD_PX = 60;
 
 export function wireWorld(scene: WorldScene, opts: MountOpts): WorldCleanup {

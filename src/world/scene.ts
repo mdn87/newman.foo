@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { NodeDef, TravelState, Vec3 } from '../core/types';
 import { FlightPath, nodeParam } from '../core/path';
 import { makeGalaxy, type GalaxyKind } from '../core/galaxy';
+import { jetEase, jetSpeed } from '../core/ease';
 import { overviewPose } from '../core/overview';
 import { OVERVIEW_INDEX } from '../core/travel';
 import astronautUrl from '../assets/astronaut-alpha.png';
@@ -13,17 +14,28 @@ const BG = 0xffffff, LINE = 0x4ab3d4, LINE_FAINT = 0xcfe4f0;
 const CAM_BACK = 9, CAM_UP = 3, CAM_DEPTH = 6.3;
 const ASTRONAUT_RIGHT = -0.7, ASTRONAUT_FORWARD = -1.2, ASTRONAUT_MARGIN = 0.1;
 
-// Galaxy-planet node billboard (galaxy-planet.svg is 280x220).
-const PLANET_ASPECT = 280 / 220, PLANET_SCALE = 2.1;
-const OVERVIEW_PLANET_GROW = 2.0; // node planets read as markers within the galaxy
+// Signature node marker (galaxy-node.svg is square, grayscale → tinted per accent).
+const NODE_SCALE = 2.1;
+const OVERVIEW_PLANET_GROW = 2.0; // node markers read as the missions within the galaxy
 const OVERVIEW_DIR: Vec3 = { x: 0, y: 1, z: -0.18 };
+const GALAXY_SPIN = 0.018; // rad/s — the whole field turns ever so slowly
 
-// Simple line-art doodle motifs (thin cyan outlines); aspect keeps each undistorted.
-const PIECE_ART: Record<GalaxyKind, { url: string; aspect: number }> = {
-  planet: { url: '/artwork/galaxy/galaxy-planet-outline.svg', aspect: 280 / 220 },
-  bubble: { url: '/artwork/galaxy/galaxy-bubble.svg', aspect: 1 },
-  cloud: { url: '/artwork/galaxy/galaxy-cloud.svg', aspect: 120 / 84 },
-  sparkle: { url: '/artwork/galaxy/galaxy-sparkle.svg', aspect: 1 },
+// Thruster flame pinned under the astronaut (galaxy-thruster.svg is 80x120).
+const THRUSTER_ASPECT = 80 / 120;
+
+// Abstract line-art motifs scattered through the field: url + raster size + aspect.
+interface PieceArt { url: string; w: number; h: number; aspect: number; }
+const PIECE_ART: Record<GalaxyKind, PieceArt> = {
+  bubble: { url: '/artwork/galaxy/galaxy-bubble.svg', w: 256, h: 256, aspect: 1 },
+  sparkle: { url: '/artwork/galaxy/galaxy-sparkle.svg', w: 256, h: 256, aspect: 1 },
+  cloud: { url: '/artwork/galaxy/galaxy-cloud.svg', w: 384, h: 269, aspect: 120 / 84 },
+  star: { url: '/artwork/galaxy/galaxy-star.svg', w: 256, h: 256, aspect: 1 },
+  diamond: { url: '/artwork/galaxy/galaxy-diamond.svg', w: 256, h: 256, aspect: 1 },
+  triangle: { url: '/artwork/galaxy/galaxy-triangle.svg', w: 256, h: 256, aspect: 1 },
+  plus: { url: '/artwork/galaxy/galaxy-plus.svg', w: 256, h: 256, aspect: 1 },
+  hexagon: { url: '/artwork/galaxy/galaxy-hexagon.svg', w: 256, h: 256, aspect: 1 },
+  swirl: { url: '/artwork/galaxy/galaxy-swirl.svg', w: 256, h: 256, aspect: 1 },
+  constellation: { url: '/artwork/galaxy/galaxy-constellation.svg', w: 256, h: 256, aspect: 1 },
 };
 
 const smoothstep = (t: number) => t * t * (3 - 2 * t);
@@ -49,11 +61,13 @@ function svgTexture(url: string, w: number, h: number): THREE.Texture {
   return tex;
 }
 
-/** How much of the galaxy overview is showing for a given travel state (0..1). */
+/** How much of the galaxy overview is showing for a given travel state (0..1).
+ *  Uses the same jet-booster easing as node-to-node travel so pulling back to
+ *  the star map glides with the same feel (and matches the booster flame). */
 function overviewAmount(travel: TravelState): number {
   if (travel.kind === 'atNode') return travel.index === OVERVIEW_INDEX ? 1 : 0;
-  if (travel.to === OVERVIEW_INDEX) return smoothstep(travel.t);
-  if (travel.from === OVERVIEW_INDEX) return 1 - smoothstep(travel.t);
+  if (travel.to === OVERVIEW_INDEX) return jetEase(travel.t);
+  if (travel.from === OVERVIEW_INDEX) return 1 - jetEase(travel.t);
   return 0;
 }
 
@@ -75,8 +89,10 @@ export class WorldScene {
   private readonly nodeFrameRadii: number[];
   private readonly planets: THREE.Sprite[] = [];
   private readonly pieces: THREE.Sprite[] = [];
+  private readonly field = new THREE.Group();
   private readonly flyFades: THREE.Material[] = [];
   private readonly astronaut: THREE.Sprite;
+  private readonly thruster: THREE.Sprite;
   private readonly raycaster = new THREE.Raycaster();
   private readonly idle: boolean;
   private time = 0;
@@ -86,7 +102,7 @@ export class WorldScene {
     this.nodes = nodes;
     this.idle = opts.idle;
     this.nodePositions = nodes.map((n) => n.pos);
-    this.nodeFrameRadii = nodes.map((n) => nodeRadius(n) * PLANET_SCALE * 0.6);
+    this.nodeFrameRadii = nodes.map((n) => nodeRadius(n) * NODE_SCALE * 0.6);
     this.path = new FlightPath(this.nodePositions);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -95,18 +111,20 @@ export class WorldScene {
 
     // Filled two-tone planet for the nodes (the clickable missions) — distinct
     // from the thin outline-planet doodles, so the hierarchy reads.
-    const planetTex = svgTexture('/artwork/galaxy/galaxy-planet.svg', 1024, 804);
+    const nodeTex = svgTexture('/artwork/galaxy/galaxy-node.svg', 512, 512);
 
-    // Node planets: two-tone galaxy-planet billboards (same art at every zoom
-    // level), clickable, growing a little in the overview.
+    // Node markers: one signature glow-orb sprite tinted by each node's accent,
+    // so the missions read as distinct destinations among the abstract decoration.
+    // Clickable, fixed in place as nav anchors, growing a little in the overview.
     nodes.forEach((n, i) => {
-      const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: planetTex, transparent: true, depthWrite: false, fog: false }));
-      const h = nodeRadius(n) * PLANET_SCALE * (0.9 + 0.2 * ((i * 7) % 5) / 5);
-      sprite.scale.set(h * PLANET_ASPECT, h, 1);
-      sprite.material.rotation = ((i * 13) % 7) / 7 * 0.6 - 0.3;
+      const mat = new THREE.SpriteMaterial({ map: nodeTex, transparent: true, depthWrite: false, fog: false });
+      mat.color.set(n.accent);
+      const sprite = new THREE.Sprite(mat);
+      const h = nodeRadius(n) * NODE_SCALE * (0.9 + 0.2 * ((i * 7) % 5) / 5);
+      sprite.scale.set(h, h, 1);
       sprite.position.copy(v3(n.pos));
       sprite.userData.nodeIndex = i;
-      sprite.userData.baseW = h * PLANET_ASPECT;
+      sprite.userData.baseW = h;
       sprite.userData.baseH = h;
       this.planets.push(sprite);
       this.scene.add(sprite);
@@ -122,12 +140,13 @@ export class WorldScene {
 
     // Individual galaxy pieces scattered through 3D space, parallaxing as the
     // viewport moves. Always visible — they are the galaxy in every view.
-    const pieceTex: Record<GalaxyKind, THREE.Texture> = {
-      planet: svgTexture(PIECE_ART.planet.url, 700, 550),
-      bubble: svgTexture(PIECE_ART.bubble.url, 256, 256),
-      cloud: svgTexture(PIECE_ART.cloud.url, 384, 269),
-      sparkle: svgTexture(PIECE_ART.sparkle.url, 256, 256),
-    };
+    const pieceTex = {} as Record<GalaxyKind, THREE.Texture>;
+    for (const kind of Object.keys(PIECE_ART) as GalaxyKind[]) {
+      const art = PIECE_ART[kind];
+      pieceTex[kind] = svgTexture(art.url, art.w, art.h);
+    }
+    // Everything decorative lives in one group so the whole galaxy can spin as a
+    // unit — pieces and arm spines drift together while the camera rail stays put.
     const field = makeGalaxy(opts.seed ?? 1981);
     for (const p of field.pieces) {
       const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: pieceTex[p.kind], transparent: true, depthWrite: false, fog: false }));
@@ -136,15 +155,16 @@ export class WorldScene {
       sprite.material.rotation = p.rot;
       sprite.userData.spin = p.spin;
       this.pieces.push(sprite);
-      this.scene.add(sprite);
+      this.field.add(sprite);
     }
     for (const arc of field.arcs) {
       // Smooth the polyline into a flowing curve (raw segments look jagged).
       const curve = new THREE.CatmullRomCurve3(arc.points.map(v3));
       const geom = new THREE.BufferGeometry().setFromPoints(curve.getPoints(60));
-      const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: LINE, transparent: true, opacity: 0.3, fog: false }));
-      this.scene.add(line);
+      const line = new THREE.Line(geom, new THREE.LineBasicMaterial({ color: LINE, transparent: true, opacity: 0.28, fog: false }));
+      this.field.add(line);
     }
+    this.scene.add(this.field);
 
     // The (not-)astronaut billboard, flying beside the camera.
     const astronautTex = new THREE.TextureLoader().load(astronautUrl);
@@ -157,6 +177,15 @@ export class WorldScene {
     // gets clipped by planets he flies past.
     this.astronaut.renderOrder = 10;
     this.scene.add(this.astronaut);
+
+    // Booster exhaust: a warm flame tucked under the astronaut, flared by thrust.
+    const thrusterTex = svgTexture('/artwork/galaxy/galaxy-thruster.svg', 256, 384);
+    this.thruster = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: thrusterTex, transparent: true, depthWrite: false, depthTest: false, fog: false, opacity: 0,
+    }));
+    this.thruster.renderOrder = 9; // under the astronaut, over the world
+    this.thruster.visible = false;
+    this.scene.add(this.thruster);
 
     this.resize();
   }
@@ -201,7 +230,7 @@ export class WorldScene {
     } else {
       flyU = travel.kind === 'atNode'
         ? nodeParam(travel.index, n)
-        : nodeParam(travel.from, n) + (nodeParam(travel.to, n) - nodeParam(travel.from, n)) * smoothstep(travel.t);
+        : nodeParam(travel.from, n) + (nodeParam(travel.to, n) - nodeParam(travel.from, n)) * jetEase(travel.t);
       const np = this.flyPose(flyU);
       np.pos.y += bob * 0.3;
       camPos = np.pos; camLook = np.look;
@@ -228,10 +257,24 @@ export class WorldScene {
     const grow = 1 + ov * (OVERVIEW_PLANET_GROW - 1);
     for (const p of this.planets) {
       p.scale.set((p.userData.baseW as number) * grow, (p.userData.baseH as number) * grow, 1);
-      if (this.idle) p.material.rotation += dt * 0.05;
     }
     if (this.idle) {
+      this.field.rotation.z += dt * GALAXY_SPIN; // the whole galaxy drifts as you sit
       for (const piece of this.pieces) piece.material.rotation += dt * (piece.userData.spin as number) * 0.2;
+    }
+
+    // Booster flame: ignites on departure, brightest mid-burn, gone on the glide.
+    const thrust = travel.kind === 'inTransit' ? jetSpeed(travel.t) : 0;
+    if (thrust > 0.02) {
+      const flameH = ASTRONAUT_HEIGHT * (0.5 + 1.25 * thrust);
+      this.thruster.scale.set(flameH * THRUSTER_ASPECT, flameH, 1);
+      this.thruster.position.copy(this.astronaut.position)
+        .addScaledVector(up, -(ASTRONAUT_HEIGHT * 0.42 + flameH * 0.5))
+        .addScaledVector(forward, -0.3 * thrust);
+      this.thruster.material.opacity = (0.4 + 0.55 * thrust) * (1 - ov);
+      this.thruster.visible = this.thruster.material.opacity > 0.01;
+    } else {
+      this.thruster.visible = false;
     }
     this.renderer.render(this.scene, this.camera);
 
@@ -283,20 +326,27 @@ export class WorldScene {
   }
 
   dispose(): void {
+    // Collect uniquely first: textures and materials are shared across many
+    // sprites (one node texture for every marker, one per-kind texture for every
+    // piece), so dispose each exactly once instead of N times.
+    const geometries = new Set<THREE.BufferGeometry>();
+    const materials = new Set<THREE.Material>();
+    const textures = new Set<THREE.Texture>();
     this.scene.traverse((o) => {
       const geometry = (o as { geometry?: THREE.BufferGeometry }).geometry;
-      if (geometry) geometry.dispose();
+      if (geometry) geometries.add(geometry);
 
       const material = (o as { material?: THREE.Material | THREE.Material[] }).material;
-      const materials = Array.isArray(material) ? material : material ? [material] : [];
-      for (const mm of materials) {
+      const mats = Array.isArray(material) ? material : material ? [material] : [];
+      for (const mm of mats) {
+        materials.add(mm);
         const map = (mm as THREE.Material & { map?: THREE.Texture }).map;
-        if (map) {
-          map.dispose();
-        }
-        mm.dispose();
+        if (map) textures.add(map);
       }
     });
+    for (const g of geometries) g.dispose();
+    for (const t of textures) t.dispose();
+    for (const m of materials) m.dispose();
     this.renderer.dispose();
   }
 }
