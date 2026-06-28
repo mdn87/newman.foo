@@ -1,0 +1,76 @@
+{
+  "pack_id": "threejs-skills-research-newman-foo-candidate",
+  "schema": "project-local-source-pack-candidate.v1",
+  "status": "candidate",
+  "active_scope": "project-local",
+  "target_project": {
+    "name": "newman.foo",
+    "repo": "mdn87/newman.foo",
+    "local_name": "notanastronaut",
+    "runtime": "Vite + TypeScript + three.js"
+  },
+  "primary_candidate": {
+    "name": "threejs-skills",
+    "repo": "CloudAI-X/threejs-skills",
+    "url": "https://github.com/CloudAI-X/threejs-skills",
+    "head_commit": "b1c623076c661fc9b03dac19292e825a5d106823",
+    "captured_at": "2026-06-28",
+    "repo_license_metadata": null,
+    "readme_license_claim": "MIT License",
+    "stars_at_capture": 2482,
+    "forks_at_capture": 285,
+    "last_push_at_capture": "2026-01-19T21:15:32Z",
+    "skill_count": 10
+  },
+  "recommended_robust_alternative": {
+    "name": "threejs-game-skills",
+    "repo": "majidmanzarpour/threejs-game-skills",
+    "url": "https://github.com/majidmanzarpour/threejs-game-skills",
+    "head_commit": "2215fd7c28ce55cee6a593ba1e422485db42498f",
+    "captured_at": "2026-06-28",
+    "license": "MIT",
+    "stars_at_capture": 558,
+    "forks_at_capture": 61,
+    "last_push_at_capture": "2026-06-16T11:18:44Z",
+    "skill_count": 9,
+    "markdown_count": 48
+  },
+  "related_sources": [
+    {
+      "repo": "gamedev-skills/awesome-gamedev-agent-skills",
+      "url": "https://github.com/gamedev-skills/awesome-gamedev-agent-skills",
+      "head_commit": "9d0fa9612225d51d9a89f0a0c6f0fe15d85e3ee0",
+      "role": "broad game-development router already staged locally"
+    },
+    {
+      "repo": "dgreenheck/webgpu-claude-skill",
+      "url": "https://github.com/dgreenheck/webgpu-claude-skill",
+      "role": "narrow WebGPU-with-Three.js option; not primary for current WebGL/Vite project"
+    },
+    {
+      "repo": "EnzeD/r3f-skills",
+      "url": "https://github.com/EnzeD/r3f-skills",
+      "role": "React Three Fiber option; lower fit because this repo does not use React"
+    },
+    {
+      "name": "Three.js documentation",
+      "url": "https://threejs.org/docs/",
+      "role": "authority fallback for API correctness"
+    }
+  ],
+  "local_activation": {
+    "entrypoint": "cleaned/activation-guide.md",
+    "autoload": false,
+    "global_install": false
+  },
+  "later_lugos_import": {
+    "intended_lane": "aeta-to-bran-source-pack",
+    "import_ready": false,
+    "reason": "Research candidate first; choose canonical Three.js source after one project task proves fit.",
+    "required_before_import": [
+      "Resolve CloudAI-X license ambiguity if actual upstream files would be copied.",
+      "Decide whether majidmanzarpour/threejs-game-skills should supersede CloudAI-X as the canonical Three.js game source.",
+      "Bind approval to the recorded upstream commit hash."
+    ]
+  }
+}
