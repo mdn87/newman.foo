@@ -25,7 +25,7 @@ export function makeSpiralGalaxy(seed: number, opts: SpiralOpts = {}): SpiralFie
   const radius = opts.radius ?? 200;
   const thickness = opts.thickness ?? 10;
   const twist = opts.twist ?? 2.4;
-  const coreFraction = opts.coreFraction ?? 0.28;
+  const coreFraction = opts.coreFraction ?? 0.16;
   const rnd = mulberry32(seed);
   const gauss = () => {
     let u = 0, v = 0;
@@ -57,8 +57,8 @@ export function makeSpiralGalaxy(seed: number, opts: SpiralOpts = {}): SpiralFie
     positions[i * 3] = Math.cos(theta) * r;
     positions[i * 3 + 1] = y;
     positions[i * 3 + 2] = Math.sin(theta) * r;
-    sizes[i] = 1.4 + 2.6 * coreness + rnd() * 0.8;
-    alphas[i] = Math.min(1, 0.16 + 0.5 * coreness + rnd() * 0.06);
+    sizes[i] = 0.8 + 1.6 * coreness + rnd() * 0.5;
+    alphas[i] = Math.min(1, 0.12 + 0.34 * coreness + rnd() * 0.05);
     const m = coreness * coreness;
     colors[i * 3] = CYAN.r + (NAVY.r - CYAN.r) * m;
     colors[i * 3 + 1] = CYAN.g + (NAVY.g - CYAN.g) * m;

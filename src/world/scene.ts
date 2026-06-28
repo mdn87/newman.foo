@@ -32,7 +32,7 @@ function pointsMaterial(square: boolean): THREE.ShaderMaterial {
         vec4 mv = modelViewMatrix * vec4(position, 1.0);
         float fade = clamp(1.0 - distance(position, uAvatar) / uFade, 0.0, 1.0);
         vAlpha = aAlpha * (uFade > 0.0 ? fade : 1.0);
-        gl_PointSize = aSize * uPixelRatio * (300.0 / max(-mv.z, 1.0));
+        gl_PointSize = min(aSize * uPixelRatio * (120.0 / max(-mv.z, 1.0)), 26.0);
         gl_Position = projectionMatrix * mv;
       }`,
     fragmentShader: `
