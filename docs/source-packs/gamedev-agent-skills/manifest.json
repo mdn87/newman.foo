@@ -1,0 +1,72 @@
+{
+  "pack_id": "gamedev-agent-skills-newman-foo-candidate",
+  "schema": "project-local-source-pack-candidate.v1",
+  "status": "candidate",
+  "active_scope": "project-local",
+  "target_project": {
+    "name": "newman.foo",
+    "repo": "mdn87/newman.foo",
+    "local_name": "notanastronaut",
+    "runtime": "Vite + TypeScript + three.js"
+  },
+  "source": {
+    "name": "awesome-gamedev-agent-skills",
+    "repo": "gamedev-skills/awesome-gamedev-agent-skills",
+    "url": "https://github.com/gamedev-skills/awesome-gamedev-agent-skills",
+    "head_commit": "9d0fa9612225d51d9a89f0a0c6f0fe15d85e3ee0",
+    "license": "Apache-2.0",
+    "captured_at": "2026-06-28"
+  },
+  "selected_skills": [
+    {
+      "name": "router",
+      "upstream_path": "router/SKILL.md",
+      "use": "Route game-development requests to the minimal relevant skill set."
+    },
+    {
+      "name": "threejs-scene-setup",
+      "upstream_path": "skills/web-engines/threejs-scene-setup/SKILL.md",
+      "use": "Keep three.js scene, renderer, camera, loop, and resize work aligned with current engine patterns."
+    },
+    {
+      "name": "camera-systems",
+      "upstream_path": "skills/disciplines/camera-systems/SKILL.md",
+      "use": "Guide chase camera smoothing, framing, look behavior, and shake hooks."
+    },
+    {
+      "name": "game-feel",
+      "upstream_path": "skills/disciplines/game-feel/SKILL.md",
+      "use": "Tune feedback, thrust response, transient motion, and accessibility-aware polish."
+    },
+    {
+      "name": "input-systems",
+      "upstream_path": "skills/disciplines/input-systems/SKILL.md",
+      "use": "Keep keyboard, pointer, and future gamepad controls ergonomic and testable."
+    },
+    {
+      "name": "game-ui-ux",
+      "upstream_path": "skills/disciplines/game-ui-ux/SKILL.md",
+      "use": "Guide HUD, mode switching, responsive layout, and non-overlap checks."
+    },
+    {
+      "name": "performance-optimization",
+      "upstream_path": "skills/disciplines/performance-optimization/SKILL.md",
+      "use": "Preserve frame budget, bundle budget, and asset discipline."
+    }
+  ],
+  "later_lugos_import": {
+    "intended_lane": "aeta-to-bran-source-pack",
+    "import_ready": false,
+    "reason": "Project-local candidate first; no Bran custody or global skill activation yet.",
+    "required_before_import": [
+      "Review source-intake and risk-triage fields.",
+      "Decide whether to copy actual Apache-2.0 skill files or keep original distillation only.",
+      "Bind approval to the recorded upstream commit hash."
+    ]
+  },
+  "local_activation": {
+    "entrypoint": "cleaned/activation-guide.md",
+    "autoload": false,
+    "global_install": false
+  }
+}
