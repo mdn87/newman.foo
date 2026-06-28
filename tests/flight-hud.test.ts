@@ -19,7 +19,7 @@ describe('FlightHud', () => {
   it('renders the control hint', () => {
     const { root } = makeRoot();
     new FlightHud(root);
-    expect((root as unknown as { innerHTML: string }).innerHTML).toMatch(/steer/i);
+    expect((root as unknown as { innerHTML: string }).innerHTML).toMatch(/move/i);
   });
 
   it('updates the speed readout text', () => {

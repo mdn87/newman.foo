@@ -1,6 +1,17 @@
 import type { Vec3 } from './types';
 
-export interface FlightInput { aimX: number; aimY: number; thrust: number; }
+/**
+ * Game-style 6DOF-ish input. Facing (yaw/pitch) is DECOUPLED from movement:
+ * the mouse aims `yawDelta`/`pitchDelta` (radians applied this tick), while
+ * WASD/arrows/right-click drive `forward` (W/S) and `strafe` (A/D) thrust
+ * relative to the facing — so there's a real left, right, back, not just forward.
+ */
+export interface FlightInput {
+  yawDelta: number;
+  pitchDelta: number;
+  forward: number; // -1..1
+  strafe: number;  // -1..1
+}
 
 export interface FlightState {
   position: Vec3; velocity: Vec3; heading: Vec3;
@@ -8,9 +19,8 @@ export interface FlightState {
 }
 
 export interface FlightOpts {
-  turnRate?: number; accel?: number; maxSpeed?: number; drag?: number;
-  throttleEase?: number; bankMax?: number; bankEase?: number;
-  bound?: number; boundPush?: number; pitchLimit?: number;
+  accel?: number; maxSpeed?: number; drag?: number; throttleEase?: number;
+  bankMax?: number; bankEase?: number; bound?: number; boundPush?: number; pitchLimit?: number;
 }
 
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
@@ -21,10 +31,9 @@ const headingFrom = (yaw: number, pitch: number): Vec3 => ({
 });
 
 /**
- * Deterministic free-flight integrator — "jet boosters in space". Steering eases
- * heading toward the pointer aim; a single smoothed `throttle` gives the slow
- * booster ignition; light drag glides you to a near-stop on release; a soft
- * boundary keeps you from getting lost. No three.js, no wall clock.
+ * Deterministic free-flight integrator. The booster ramps in (throttle ease)
+ * whenever any movement input is held, and the avatar glides to a near-stop on
+ * release (light drag). A soft boundary keeps you from getting lost. No three.js.
  */
 export class FlightMachine {
   state: FlightState;
@@ -32,11 +41,10 @@ export class FlightMachine {
 
   constructor(opts: FlightOpts = {}) {
     this.o = {
-      turnRate: opts.turnRate ?? 1.6,
-      accel: opts.accel ?? 90,
-      maxSpeed: opts.maxSpeed ?? 70,
+      accel: opts.accel ?? 110,
+      maxSpeed: opts.maxSpeed ?? 80,
       drag: opts.drag ?? 0.6,
-      throttleEase: opts.throttleEase ?? 2.2,
+      throttleEase: opts.throttleEase ?? 6,
       bankMax: opts.bankMax ?? 0.5,
       bankEase: opts.bankEase ?? 3,
       bound: opts.bound ?? 260,
@@ -54,19 +62,36 @@ export class FlightMachine {
     const o = this.o, s = this.state;
     const ease = (cur: number, tgt: number, rate: number) => cur + (tgt - cur) * Math.min(1, rate * dt);
 
-    s.yaw += input.aimX * o.turnRate * dt;
-    s.pitch = clamp(s.pitch - input.aimY * o.turnRate * dt, -o.pitchLimit, o.pitchLimit);
+    // Facing.
+    s.yaw += input.yawDelta;
+    s.pitch = clamp(s.pitch + input.pitchDelta, -o.pitchLimit, o.pitchLimit);
     s.heading = headingFrom(s.yaw, s.pitch);
-    s.bank = ease(s.bank, -clamp(input.aimX, -1, 1) * o.bankMax, o.bankEase);
 
-    s.throttle = ease(s.throttle, clamp(input.thrust, 0, 1), o.throttleEase);
+    // Right vector = normalize(cross(worldUp(0,1,0), heading)) = (hz, 0, -hx).
+    let rx = s.heading.z, rz = -s.heading.x;
+    const rl = Math.hypot(rx, rz) || 1;
+    rx /= rl; rz /= rl;
 
-    const a = o.accel * s.throttle * dt;
-    s.velocity.x += s.heading.x * a; s.velocity.y += s.heading.y * a; s.velocity.z += s.heading.z * a;
+    // Thrust direction = heading*forward + right*strafe.
+    const fx = s.heading.x * input.forward + rx * input.strafe;
+    const fy = s.heading.y * input.forward;
+    const fz = s.heading.z * input.forward + rz * input.strafe;
+    const mag = Math.hypot(fx, fy, fz);
 
+    s.throttle = ease(s.throttle, mag > 0 ? 1 : 0, o.throttleEase);
+    if (mag > 1e-6) {
+      const a = (o.accel * s.throttle * dt) / mag;
+      s.velocity.x += fx * a; s.velocity.y += fy * a; s.velocity.z += fz * a;
+    }
+
+    // Bank: lean into the strafe.
+    s.bank = ease(s.bank, -clamp(input.strafe, -1, 1) * o.bankMax, o.bankEase);
+
+    // Light drag -> inertial glide.
     const keep = Math.pow(o.drag, dt);
     s.velocity.x *= keep; s.velocity.y *= keep; s.velocity.z *= keep;
 
+    // Soft boundary.
     const { x: px, y: py, z: pz } = s.position;
     const dist = Math.hypot(px, py, pz);
     if (dist > o.bound) {
@@ -74,9 +99,11 @@ export class FlightMachine {
       s.velocity.x -= px * k; s.velocity.y -= py * k; s.velocity.z -= pz * k;
     }
 
+    // Speed cap.
     let sp = Math.hypot(s.velocity.x, s.velocity.y, s.velocity.z);
     if (sp > o.maxSpeed) { const f = o.maxSpeed / sp; s.velocity.x *= f; s.velocity.y *= f; s.velocity.z *= f; sp = o.maxSpeed; }
 
+    // Integrate.
     s.position.x += s.velocity.x * dt; s.position.y += s.velocity.y * dt; s.position.z += s.velocity.z * dt;
     s.speed = sp;
   }

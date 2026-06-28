@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { FlightState } from '../core/flight';
 import type { Vec3 } from '../core/types';
 import { makeSpiralGalaxy } from '../core/galaxy';
-import { makeDotGrid } from '../core/grid';
+import { makeGridLines } from '../core/grid';
 import { makeVolumeBodies } from '../core/parallax';
 import astronautUrl from '../assets/astronaut-alpha.png';
 
@@ -47,6 +47,25 @@ function pointsMaterial(square: boolean): THREE.ShaderMaterial {
   });
 }
 
+/** Grid-line shader: per-FRAGMENT distance fade so a passing line glows near the
+ *  avatar and fades into the distance (a holodeck lattice, distinct from stars). */
+function gridLinesMaterial(): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, blending: THREE.NormalBlending,
+    uniforms: { uAvatar: { value: new THREE.Vector3() }, uFade: { value: 380 }, uColor: { value: new THREE.Color(0x4ab3d4) } },
+    vertexShader: `
+      varying vec3 vWorld;
+      void main() { vWorld = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: `
+      varying vec3 vWorld; uniform vec3 uAvatar; uniform float uFade; uniform vec3 uColor;
+      void main() {
+        float fade = clamp(1.0 - distance(vWorld, uAvatar) / uFade, 0.0, 1.0);
+        if (fade <= 0.0) discard;
+        gl_FragColor = vec4(uColor, fade * 0.55);
+      }`,
+  });
+}
+
 function setAttrs(geom: THREE.BufferGeometry, pos: Float32Array, size: Float32Array, alpha: Float32Array, color: Float32Array) {
   geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geom.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
@@ -59,7 +78,7 @@ export class WorldScene {
   private readonly scene = new THREE.Scene();
   private readonly camera: THREE.PerspectiveCamera;
   private readonly galaxy: THREE.Points;
-  private readonly grid: THREE.Points;
+  private readonly grid: THREE.LineSegments;
   private readonly squares: THREE.Points;
   private readonly avatar: THREE.Sprite;
   private readonly thruster: THREE.Sprite;
@@ -84,17 +103,12 @@ export class WorldScene {
     this.galaxy = new THREE.Points(gg, galaxyMat);
     this.scene.add(this.galaxy);
 
-    // Dot grid (round, faint cyan, fades with distance).
-    const gpos = makeDotGrid({ spacing: 70, extent: EXTENT });
-    const gn = gpos.length / 3;
-    const gsize = new Float32Array(gn).fill(1.1);
-    const galpha = new Float32Array(gn).fill(0.5);
-    const gcol = new Float32Array(gn * 3);
-    for (let i = 0; i < gn; i++) { gcol[i * 3] = 0x4a / 255; gcol[i * 3 + 1] = 0xb3 / 255; gcol[i * 3 + 2] = 0xd4 / 255; }
+    // 3D grid as a fading line lattice — a clear spatial reference / motion cue,
+    // unmistakable against the point stars.
     const gridGeom = new THREE.BufferGeometry();
-    setAttrs(gridGeom, gpos, gsize, galpha, gcol);
-    this.gridMat = pointsMaterial(false);
-    this.grid = new THREE.Points(gridGeom, this.gridMat);
+    gridGeom.setAttribute('position', new THREE.BufferAttribute(makeGridLines({ spacing: 90, extent: EXTENT }), 3));
+    this.gridMat = gridLinesMaterial();
+    this.grid = new THREE.LineSegments(gridGeom, this.gridMat);
     this.scene.add(this.grid);
 
     // Depth squares (square points, varied size, faint, distance fade).

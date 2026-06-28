@@ -1,75 +1,77 @@
 import { describe, expect, it } from 'vitest';
 import { FlightMachine, type FlightInput } from '../src/core/flight';
 
-const NEUTRAL: FlightInput = { aimX: 0, aimY: 0, thrust: 0 };
-const THRUST: FlightInput = { aimX: 0, aimY: 0, thrust: 1 };
-const speed = (m: FlightMachine) => m.state.speed;
+const I = (p: Partial<FlightInput> = {}): FlightInput => ({ yawDelta: 0, pitchDelta: 0, forward: 0, strafe: 0, ...p });
+const run = (m: FlightMachine, inp: FlightInput, n: number, dt = 0.05) => { for (let i = 0; i < n; i++) m.tick(dt, inp); };
 
-describe('FlightMachine', () => {
+describe('FlightMachine (game controls)', () => {
   it('starts at rest at the origin facing +z', () => {
     const m = new FlightMachine();
     expect(m.state.position).toEqual({ x: 0, y: 0, z: 0 });
     expect(m.state.speed).toBe(0);
     expect(m.state.heading.z).toBeCloseTo(1, 6);
-    expect(Math.hypot(m.state.heading.x, m.state.heading.y, m.state.heading.z)).toBeCloseTo(1, 6);
   });
 
-  it('ignites slowly — first burst is far below full-throttle acceleration', () => {
-    const m = new FlightMachine({ accel: 90 });
-    m.tick(0.1, THRUST);
-    expect(speed(m)).toBeGreaterThan(0);
-    expect(speed(m)).toBeLessThan(0.5 * 90 * 0.1);
+  it('W (forward) drives +z, S (back) drives -z', () => {
+    const f = new FlightMachine(); run(f, I({ forward: 1 }), 20);
+    expect(f.state.position.z).toBeGreaterThan(0);
+    const b = new FlightMachine(); run(b, I({ forward: -1 }), 20);
+    expect(b.state.position.z).toBeLessThan(0);
   });
 
-  it('builds toward, and never exceeds, max speed under sustained thrust', () => {
-    const m = new FlightMachine({ maxSpeed: 70 });
-    let peak = 0;
-    for (let i = 0; i < 200; i++) {
-      m.tick(0.05, THRUST);
-      expect(speed(m)).toBeLessThanOrEqual(70 + 1e-6);
-      peak = Math.max(peak, speed(m));
-    }
-    // Reaches cruising speed quickly (well before the soft boundary slows it).
-    expect(peak).toBeGreaterThan(0.9 * 70);
+  it('strafe gives a real left and right (not just forward)', () => {
+    const r = new FlightMachine(); run(r, I({ strafe: 1 }), 20);   // D
+    expect(r.state.position.x).toBeGreaterThan(0);
+    expect(Math.abs(r.state.position.z)).toBeLessThan(0.01);       // sideways, no forward creep
+    const l = new FlightMachine(); run(l, I({ strafe: -1 }), 20);  // A
+    expect(l.state.position.x).toBeLessThan(0);
   });
 
-  it('glides to a near-stop after thrust is released (long but bounded)', () => {
+  it('movement is relative to facing: yaw 90° then W moves along the new heading (+x)', () => {
     const m = new FlightMachine();
-    for (let i = 0; i < 60; i++) m.tick(0.05, THRUST);
-    const cruising = speed(m);
-    let prev = cruising;
-    for (let i = 0; i < 20; i++) { m.tick(0.05, NEUTRAL); expect(speed(m)).toBeLessThanOrEqual(prev + 1e-9); prev = speed(m); }
-    expect(speed(m)).toBeGreaterThan(0);
-    for (let i = 0; i < 400; i++) m.tick(0.05, NEUTRAL);
-    expect(speed(m)).toBeLessThan(0.02 * cruising);
+    m.tick(0.05, I({ yawDelta: Math.PI / 2 })); // face +x
+    expect(m.state.heading.x).toBeCloseTo(1, 3);
+    run(m, I({ forward: 1 }), 20);
+    expect(m.state.position.x).toBeGreaterThan(0);
+    expect(Math.abs(m.state.position.z)).toBeLessThan(0.5);
   });
 
-  it('steers: positive aimX turns heading and banks the avatar', () => {
-    const m = new FlightMachine();
-    for (let i = 0; i < 20; i++) m.tick(0.05, { aimX: 1, aimY: 0, thrust: 0 });
-    expect(m.state.yaw).toBeGreaterThan(0);
-    expect(m.state.heading.x).toBeGreaterThan(0);
-    expect(m.state.bank).toBeLessThan(0);
-  });
-
-  it('clamps pitch so you cannot flip over', () => {
+  it('mouse look adds yaw/pitch and clamps pitch', () => {
     const m = new FlightMachine({ pitchLimit: 1.3 });
-    for (let i = 0; i < 200; i++) m.tick(0.05, { aimX: 0, aimY: 1, thrust: 0 });
+    run(m, I({ yawDelta: 0.05, pitchDelta: -0.5 }), 50);
+    expect(m.state.yaw).toBeGreaterThan(0);
     expect(Math.abs(m.state.pitch)).toBeLessThanOrEqual(1.3 + 1e-9);
+  });
+
+  it('fires the booster (throttle>0) only while a movement input is held', () => {
+    const m = new FlightMachine();
+    run(m, I({ forward: 1 }), 10);
+    expect(m.state.throttle).toBeGreaterThan(0.2);
+    run(m, I(), 60); // release everything
+    expect(m.state.throttle).toBeLessThan(0.02);
+  });
+
+  it('glides to a near-stop after movement is released, and caps speed', () => {
+    const m = new FlightMachine({ maxSpeed: 80 });
+    let peak = 0;
+    for (let i = 0; i < 200; i++) { m.tick(0.05, I({ forward: 1 })); peak = Math.max(peak, m.state.speed); expect(m.state.speed).toBeLessThanOrEqual(80 + 1e-6); }
+    expect(peak).toBeGreaterThan(0.9 * 80);
+    const cruising = m.state.speed;
+    run(m, I(), 400);
+    expect(m.state.speed).toBeLessThan(0.02 * cruising);
   });
 
   it('soft bound pulls a runaway back toward center', () => {
     const m = new FlightMachine({ bound: 100 });
     m.state.position = { x: 160, y: 0, z: 0 };
     m.state.velocity = { x: 20, y: 0, z: 0 };
-    for (let i = 0; i < 50; i++) m.tick(0.05, NEUTRAL);
+    run(m, I(), 50);
     expect(m.state.velocity.x).toBeLessThan(20);
-    expect(m.state.position.x).toBeLessThan(160 + 20 * 50 * 0.05);
   });
 
   it('is deterministic and keeps heading unit-length', () => {
     const a = new FlightMachine(), b = new FlightMachine();
-    const seq: FlightInput[] = Array.from({ length: 50 }, (_, i) => ({ aimX: Math.sin(i), aimY: Math.cos(i) * 0.5, thrust: i % 2 }));
+    const seq = Array.from({ length: 50 }, (_, i) => I({ yawDelta: Math.sin(i) * 0.02, forward: i % 2, strafe: i % 3 ? 1 : -1 }));
     for (const inp of seq) { a.tick(0.05, inp); b.tick(0.05, inp); }
     expect(a.state).toEqual(b.state);
     expect(Math.hypot(a.state.heading.x, a.state.heading.y, a.state.heading.z)).toBeCloseTo(1, 6);

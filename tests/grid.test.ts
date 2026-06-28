@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { makeDotGrid, GRID_MAX_POINTS } from '../src/core/grid';
+import { makeDotGrid, makeGridLines, GRID_MAX_POINTS, GRID_MAX_LINES } from '../src/core/grid';
 
 describe('makeDotGrid', () => {
   it('builds a cubic lattice of (2n+1)^3 points on the spacing', () => {
@@ -22,5 +22,21 @@ describe('makeDotGrid', () => {
     expect(() => makeDotGrid({ spacing: 1, extent: 1000 })).toThrow(/too dense/);
     const defaults = makeDotGrid();
     expect(defaults.length / 3).toBeLessThanOrEqual(GRID_MAX_POINTS);
+  });
+});
+
+describe('makeGridLines', () => {
+  it('emits line-segment pairs (6 floats each) along all three axes, within extent', () => {
+    const g = makeGridLines({ spacing: 50, extent: 100 }); // n=2 -> ticks 5 -> 3*25 = 75 lines
+    expect(g).toBeInstanceOf(Float32Array);
+    expect(g.length).toBe(75 * 6);
+    for (const v of g) { expect(Number.isFinite(v)).toBe(true); expect(Math.abs(v)).toBeLessThanOrEqual(100); }
+  });
+
+  it('is deterministic and stays under the line cap', () => {
+    expect(Array.from(makeGridLines({ spacing: 90, extent: 700 })))
+      .toEqual(Array.from(makeGridLines({ spacing: 90, extent: 700 })));
+    expect(makeGridLines().length / 6).toBeLessThanOrEqual(GRID_MAX_LINES);
+    expect(() => makeGridLines({ spacing: 1, extent: 1000 })).toThrow(/too dense/);
   });
 });

@@ -74,7 +74,7 @@ test('home in world mode boots the free-fly galaxy canvas', async ({ page }) => 
   await page.goto('/?mode=world');
   await expect(body(page)).toHaveAttribute('data-mode', 'world');
   await expect(page.locator('canvas#scene')).toBeVisible();
-  await expect(page.locator('.hud-strip .status')).toContainText(/steer/i);
+  await expect(page.locator('.hud-strip .status')).toContainText(/move/i);
 });
 
 test('a mission deep-link renders the list surface (portfolio intact)', async ({ page }) => {
