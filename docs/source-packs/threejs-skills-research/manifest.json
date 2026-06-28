@@ -29,11 +29,12 @@
     "head_commit": "2215fd7c28ce55cee6a593ba1e422485db42498f",
     "captured_at": "2026-06-28",
     "license": "MIT",
-    "stars_at_capture": 558,
-    "forks_at_capture": 61,
+    "stars_at_capture": 562,
+    "forks_at_capture": 62,
     "last_push_at_capture": "2026-06-16T11:18:44Z",
     "skill_count": 9,
-    "markdown_count": 48
+    "markdown_count": 48,
+    "promoted_local_pack": "docs/source-packs/threejs-game-skills/manifest.json"
   },
   "related_sources": [
     {
@@ -66,10 +67,10 @@
   "later_lugos_import": {
     "intended_lane": "aeta-to-bran-source-pack",
     "import_ready": false,
-    "reason": "Research candidate first; choose canonical Three.js source after one project task proves fit.",
+    "reason": "Research candidate first; the robust alternative is now staged as a dedicated project-local pack, but copied upstream content still needs review.",
     "required_before_import": [
       "Resolve CloudAI-X license ambiguity if actual upstream files would be copied.",
-      "Decide whether majidmanzarpour/threejs-game-skills should supersede CloudAI-X as the canonical Three.js game source.",
+      "Review the dedicated threejs-game-skills local pack before making it a Bran-managed source.",
       "Bind approval to the recorded upstream commit hash."
     ]
   }

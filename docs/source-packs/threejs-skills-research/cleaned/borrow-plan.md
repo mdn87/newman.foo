@@ -16,7 +16,9 @@
 - change class: future guidance
 - blast radius: docs only now; potentially broad if imported later
 - recommendation: Treat as the stronger future Lugos import candidate. Do not
-  run scripts or copy scaffold material without a separate L1 review.
+  run scripts or copy scaffold material without a separate L1 review. Use the
+  dedicated local pack at `docs/source-packs/threejs-game-skills/` for current
+  project guidance.
 
 ## Borrow Unit 3: Preserve Existing Broad Router
 

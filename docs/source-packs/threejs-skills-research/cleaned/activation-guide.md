@@ -25,6 +25,9 @@ Use the robust alternative framing when the task is product/game-level:
 - profiling and mobile checks: `threejs-debug-profiler`
 - release/playtest evidence: `threejs-qa-release`
 
+For those product/game-level tasks, prefer the dedicated local pack at
+`docs/source-packs/threejs-game-skills/cleaned/activation-guide.md`.
+
 ## Guardrails
 
 - Do not install either upstream pack globally.
