@@ -110,11 +110,14 @@ describe('FlightMachine', () => {
 
   it('builds toward, and never exceeds, max speed under sustained thrust', () => {
     const m = new FlightMachine({ maxSpeed: 70 });
+    let peak = 0;
     for (let i = 0; i < 200; i++) {
       m.tick(0.05, THRUST);
       expect(speed(m)).toBeLessThanOrEqual(70 + 1e-6);
+      peak = Math.max(peak, speed(m));
     }
-    expect(speed(m)).toBeGreaterThan(0.9 * 70);
+    // Reaches cruising speed quickly (well before the soft boundary slows it).
+    expect(peak).toBeGreaterThan(0.9 * 70);
   });
 
   it('glides to a near-stop after thrust is released (long but bounded)', () => {
@@ -308,7 +311,7 @@ describe('makeDotGrid', () => {
     for (let i = 0; i < g.length; i++) {
       expect(Number.isFinite(g[i]!)).toBe(true);
       expect(Math.abs(g[i]!)).toBeLessThanOrEqual(100);
-      expect(g[i]! % 50).toBe(0);
+      expect(Number.isInteger(g[i]! / 50)).toBe(true); // multiple of spacing (-0-safe)
     }
   });
 
