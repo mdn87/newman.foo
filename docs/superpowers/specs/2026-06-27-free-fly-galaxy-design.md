@@ -93,15 +93,17 @@ Replaces wheel→advance/back node controls:
   scaled/faded by thrust — same component already built, now driven by live
   throttle instead of transit `t`.
 
-### 3a. HUD in free-fly — `src/hud/hud.ts`
+### 3a. HUD in free-fly — `src/hud/flight-hud.ts` (new)
 
 The current HUD is entirely node-centric (floating mission labels, the node
 status strip, the mission panel, "click a planet" hints) — none of it applies
-without nodes. In free-fly the world mounts **without the node HUD**; it is
-replaced by a **minimal flight HUD**: a small fixed control hint ("drag to
-steer · hold W to boost") and optionally a faint speed/throttle readout,
-unobtrusive and on-brand. The node-HUD code stays in `hud.ts` for the dormant
-node path; the world simply does not construct it.
+without nodes. In free-fly the world mounts a **new minimal `FlightHud`**: a
+small fixed control hint ("drag to steer · hold W to boost · Esc for list"), a
+faint speed readout, and a **floating position readout** — blue digital-looking
+monospace text (e.g. `X +012  Y -034  Z +120`) that tracks the avatar on screen
+and updates as it moves, projected from the avatar's world position each frame.
+The node `Hud` code stays untouched in `hud.ts` for the dormant node path; the
+world simply constructs `FlightHud` instead.
 
 ### 4. Spiral galaxy — `THREE.Points` particle field
 
@@ -167,11 +169,11 @@ checks:
 
 `main.ts` therefore hides `#content` and mounts the world **only** when the
 chosen surface is `world` (root + fine pointer + WebGL + motion); for any content
-route it shows the list. `?mode=world` / `?mode=list` overrides still apply
-(forcing world on a mission route just free-flies the galaxy with `#content`
-hidden — an explicit opt-in, not the default). No `popstate → node-jump` is
-needed: the world has no nodes, and route changes that land on a content route
-re-render the list.
+route it shows the list. Overrides: `?mode=list` always wins; `?mode=world`
+applies **only on the home route** (forcing world on a mission route would hide
+the portfolio behind an empty free-fly scene, so it falls back to the list
+instead). No `popstate → node-jump` is needed: the world has no nodes, and route
+changes that land on a content route re-render the list.
 
 ## Reuse vs retire (prior session work)
 

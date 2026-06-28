@@ -14,10 +14,38 @@
 - **Palette:** brand cyan `#4ab3d4`, deep navy toward the galaxy core; warm accent reserved for the thruster flame only.
 - **Pure cores never import three.js or use `Math.random`/`Date.now`** — seeded `mulberry32` only; time enters only via `tick(dt, …)`.
 - **`Vec3` = `{ x: number; y: number; z: number }`** (from `src/core/types.ts`).
-- **Runtime point cap:** galaxy + grid total ≤ ~60k points; each generator enforces its own cap and is unit-tested for it.
+- **Runtime point cap:** galaxy ≤ 40k, grid ≤ 20k (≤ 60k combined); each generator enforces its cap and is unit-tested.
 - **Dormant, do not delete:** `src/core/travel.ts`, `path.ts`, `overview.ts`, `intent.ts`, `content/nodes.ts`, the node HUD code, the `[list]` view.
 - **Reuse:** `src/core/ease.ts`, astronaut art, `galaxy-thruster.svg`.
-- Commit after every task. Run `npm run typecheck` and `npm run test` before each commit.
+- Commit after every task **with a green typecheck** (`npm run typecheck`) and `npm run test`. Never commit on a red typecheck.
+
+### Build order & atomic commits (resolves the typecheck-vs-commit conflict)
+
+The world adapter (`galaxy`/`router`/`main`/`scene`/`mount`/`wire`) is one mutually
+dependent knot — changing any one of those files alone leaves the project failing
+`typecheck`. So:
+
+- **Phase 1 — independent, commit each green:** Task 1 (`flight`), Task 2 (`grid`),
+  Task 4 (`parallax`), Task 8 (`flight-hud`). These are new/additive files; each
+  finishes with a green typecheck + test and its own commit.
+- **Phase 2 — ATOMIC world swap (single commit):** Tasks 3 (`galaxy`), 5
+  (`router`+`main`), 6 (`scene`+`mount`), 7 (`wire`). Implement **all four**,
+  writing each module's unit test as you go (the unit tests pass per-module), but
+  run `typecheck` only **after all four are in place**, then make **one** commit
+  for the whole group. Do **not** commit between them, and ignore any per-task
+  "Step: Commit" inside Tasks 3/5/6/7 — they are replaced by the single Phase-2
+  commit below.
+- **Phase 3 — commit green:** Task 9 (`e2e`), Task 10 (verify + cleanup).
+
+Phase-2 single commit (after Tasks 3,5,6,7 all implemented and green):
+
+```bash
+npm run typecheck && npm run test
+git add src/core/galaxy.ts src/router.ts src/main.ts src/world/scene.ts \
+  src/world/mount.ts src/world/wire.ts \
+  tests/galaxy.test.ts tests/router.test.ts tests/world-wire.test.ts
+git commit -m "feat(world): free-fly galaxy world — spiral particles, follow-cam, free-fly input, routing"
+```
 
 ---
 
@@ -306,7 +334,7 @@ Expected: FAIL — module not found.
 
 ```ts
 // src/core/grid.ts
-export const GRID_MAX_POINTS = 30000;
+export const GRID_MAX_POINTS = 20000;
 
 /** Regular x/y/z dot lattice filling the flyable volume. Flat xyz Float32Array. */
 export function makeDotGrid(opts: { spacing?: number; extent?: number } = {}): Float32Array {
@@ -485,15 +513,13 @@ export function makeSpiralGalaxy(seed: number, opts: SpiralOpts = {}): SpiralFie
 Run: `npx vitest run tests/galaxy.test.ts`
 Expected: PASS (4 tests).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Do NOT commit yet — this is part of the Phase-2 atomic world swap**
 
-```bash
-npm run typecheck   # scene.ts still imports the old makeGalaxy -> will error; that's fixed in Task 6.
-git add src/core/galaxy.ts tests/galaxy.test.ts
-git commit -m "feat(core): replace doodle field with spiral galaxy particle generator"
-```
-
-> Note: `typecheck` will fail here because `scene.ts` still imports the retired `makeGalaxy`. That is expected and resolved in Task 6 (scene rewrite). Commit anyway — the core + its tests are self-contained. If your workflow forbids a red typecheck at commit, do Tasks 3 and 6 back-to-back before the typecheck gate.
+`scene.ts` still imports the retired `makeGalaxy`, so a project-wide `typecheck`
+is red until Task 6. Per **Build order & atomic commits**, leave Task 3
+uncommitted and continue into Tasks 5, 6, 7; the whole group lands in one green
+commit. (`npx vitest run tests/galaxy.test.ts` already passes in isolation — the
+generator + its test are self-contained.)
 
 ---
 
@@ -603,9 +629,10 @@ describe('chooseSurface', () => {
   it('world only when home + fine pointer + webgl + motion', () => {
     expect(chooseSurface(base)).toBe('world');
   });
-  it('forced wins either way', () => {
+  it('forced list always wins; forced world still requires the home route', () => {
     expect(chooseSurface({ ...base, forced: 'list' })).toBe('list');
-    expect(chooseSurface({ ...base, isHome: false, forced: 'world' })).toBe('world');
+    expect(chooseSurface({ ...base, isHome: true, forced: 'world' })).toBe('world');
+    expect(chooseSurface({ ...base, isHome: false, forced: 'world' })).toBe('list'); // never hide the portfolio
   });
   it('reduced motion, no webgl, coarse pointer, or non-home => list', () => {
     expect(chooseSurface({ ...base, reducedMotion: true })).toBe('list');
@@ -634,9 +661,14 @@ export interface SurfaceInputs {
   isHome: boolean;
 }
 
-/** forced wins; otherwise world needs the home route, a fine pointer, WebGL, and motion. */
+/**
+ * forced 'list' always wins; forced 'world' applies ONLY on the home route (so a
+ * mission deep-link can never hide the portfolio behind an empty free-fly scene).
+ * Otherwise world needs home + a fine pointer + WebGL + motion.
+ */
 export function chooseSurface(s: SurfaceInputs): Surface {
-  if (s.forced) return s.forced;
+  if (s.forced === 'list') return 'list';
+  if (s.forced === 'world') return s.isHome ? 'world' : 'list';
   if (s.reducedMotion) return 'list';
   if (!s.webgl) return 'list';
   if (!s.hasFinePointer) return 'list';
@@ -686,17 +718,11 @@ if (surface === 'world') {
 }
 ```
 
-- [ ] **Step 5: Run tests + typecheck**
+- [ ] **Step 5: Run the router unit test (do NOT commit — Phase-2 atomic group)**
 
 Run: `npx vitest run tests/router.test.ts`
-Expected: PASS. (`typecheck` still red until `mountWorld`'s new signature lands in Task 6 — fine.)
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add src/router.ts src/main.ts tests/router.test.ts
-git commit -m "feat(router): fine-pointer detection + home-only world surface"
-```
+Expected: PASS in isolation. Project `typecheck` is red until `mount.ts`/`scene.ts`
+land (Task 6) — that is expected; this task commits as part of the Phase-2 group.
 
 ---
 
@@ -710,7 +736,7 @@ Visual/integration task. No unit test (WebGL); verified in the preview. Renders 
 
 **Interfaces:**
 - Consumes: `FlightState` (Task 1), `makeSpiralGalaxy`/`SpiralField` (Task 3), `makeDotGrid` (Task 2), `makeVolumeBodies` (Task 4).
-- Produces: `class WorldScene { renderer: THREE.WebGLRenderer; constructor(canvas: HTMLCanvasElement, opts?: { seed?: number }); frame(dt: number, flight: FlightState): void; resize(): void; dispose(): void }`.
+- Produces: `class WorldScene { renderer: THREE.WebGLRenderer; constructor(canvas: HTMLCanvasElement, opts?: { seed?: number }); frame(dt: number, flight: FlightState): void; readout(): { x: number; y: number; pos: Vec3; visible: boolean }; resize(): void; dispose(): void }`.
 
 - [ ] **Step 1: Replace `src/world/scene.ts`**
 
@@ -757,7 +783,7 @@ function pointsMaterial(square: boolean): THREE.ShaderMaterial {
       void main() {
         ${square
           ? 'float mask = 1.0;'
-          : 'float r = length(gl_PointCoord - vec2(0.5)); float mask = smoothstep(0.5, 0.18, r); if (mask <= 0.0) discard;'}
+          : 'float r = length(gl_PointCoord - vec2(0.5)); float mask = 1.0 - smoothstep(0.18, 0.5, r); if (mask <= 0.0) discard;'}
         gl_FragColor = vec4(vColor, vAlpha * mask);
       }`,
   });
@@ -891,6 +917,19 @@ export class WorldScene {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /** Avatar's screen position + world coords, for the floating position readout. */
+  readout(): { x: number; y: number; pos: Vec3; visible: boolean } {
+    const el = this.renderer.domElement;
+    const w = el.clientWidth || innerWidth, h = el.clientHeight || innerHeight;
+    const ndc = this.avatar.position.clone().project(this.camera);
+    return {
+      x: (ndc.x * 0.5 + 0.5) * w,
+      y: (-ndc.y * 0.5 + 0.5) * h,
+      pos: { x: this.avatar.position.x, y: this.avatar.position.y, z: this.avatar.position.z },
+      visible: ndc.z < 1,
+    };
+  }
+
   dispose(): void {
     const geoms = new Set<THREE.BufferGeometry>(), mats = new Set<THREE.Material>(), texs = new Set<THREE.Texture>();
     this.scene.traverse((o) => {
@@ -955,17 +994,10 @@ export async function mountWorld(opts: MountOpts): Promise<WorldCleanup> {
 }
 ```
 
-- [ ] **Step 3: Typecheck**
+- [ ] **Step 3: Do NOT commit yet — continue the Phase-2 atomic world swap**
 
-Run: `npm run typecheck`
-Expected: PASS once Task 7 lands `wireWorld`'s new signature. If doing Task 6 alone, `wire.ts` still references the old API — proceed to Task 7 before the typecheck gate.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add src/world/scene.ts src/world/mount.ts
-git commit -m "feat(world): render free-fly galaxy (points + grid + squares + follow-cam)"
-```
+`wire.ts` still references the old node API, so project `typecheck` stays red
+until Task 7. Continue into Task 7; the group lands in the single Phase-2 commit.
 
 ---
 
@@ -990,8 +1022,8 @@ import type { WorldScene } from '../src/world/scene';
 
 const hudMocks = vi.hoisted(() => {
   const instances: Array<{ setSpeed: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }> = [];
-  const FlightHud = vi.fn(function (this: { setSpeed: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }) {
-    this.setSpeed = vi.fn(); this.dispose = vi.fn(); instances.push(this);
+  const FlightHud = vi.fn(function (this: { setSpeed: ReturnType<typeof vi.fn>; setReadout: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }) {
+    this.setSpeed = vi.fn(); this.setReadout = vi.fn(); this.dispose = vi.fn(); instances.push(this);
   });
   return { FlightHud, instances };
 });
@@ -1019,6 +1051,7 @@ function installFrame() {
 
 function makeScene(): WorldScene {
   return { frame: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
+    readout: vi.fn(() => ({ x: 0, y: 0, pos: { x: 0, y: 0, z: 0 }, visible: false })),
     renderer: { domElement: { clientWidth: 800, clientHeight: 600 } } } as unknown as WorldScene;
 }
 
@@ -1087,7 +1120,11 @@ const MAX_DT = 0.05;
 export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): () => void {
   const flight = new FlightMachine();
   const hud = new FlightHud(document.getElementById('hud-root')!);
-  let aimX = 0, aimY = 0, thrust = 0;
+  let aimX = 0, aimY = 0;
+  // Track each thrust source independently so releasing one (e.g. W) doesn't
+  // cut thrust while another (mouse) is still held.
+  let keyThrust = false, pointerThrust = false;
+  const thrust = () => (keyThrust || pointerThrust ? 1 : 0);
 
   const onPointerMove = (e: { clientX: number; clientY: number }) => {
     const w = innerWidth, h = innerHeight;
@@ -1095,10 +1132,15 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
     aimY = Math.max(-1, Math.min(1, (e.clientY - h / 2) / (h / 2)));
   };
   const isThrustKey = (k: string) => k === 'w' || k === 'W' || k === ' ' || k === 'ArrowUp';
-  const onKeyDown = (e: { key: string }) => { if (isThrustKey(e.key)) thrust = 1; };
-  const onKeyUp = (e: { key: string }) => { if (isThrustKey(e.key)) thrust = 0; };
-  const onPointerDown = (e: { button?: number }) => { if ((e.button ?? 0) === 0) thrust = 1; };
-  const onPointerUp = () => { thrust = 0; };
+  const onKeyDown = (e: { key: string; preventDefault?: () => void }) => {
+    if (isThrustKey(e.key)) { keyThrust = true; e.preventDefault?.(); }
+    else if (e.key === 'Escape' || e.key === 'l' || e.key === 'L') {
+      location.href = `?mode=list`; // escape hatch back to the portfolio list
+    }
+  };
+  const onKeyUp = (e: { key: string }) => { if (isThrustKey(e.key)) keyThrust = false; };
+  const onPointerDown = (e: { button?: number }) => { if ((e.button ?? 0) === 0) pointerThrust = true; };
+  const onPointerUp = () => { pointerThrust = false; };
 
   addEventListener('pointermove', onPointerMove as EventListener);
   addEventListener('keydown', onKeyDown as EventListener);
@@ -1111,9 +1153,10 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
     if (stopped) return;
     const dt = Math.min(MAX_DT, Math.max(0, (now - last) / 1000));
     last = now;
-    flight.tick(dt, { aimX, aimY, thrust });
+    flight.tick(dt, { aimX, aimY, thrust: thrust() });
     scene.frame(dt, flight.state);
     hud.setSpeed(flight.state.speed);
+    hud.setReadout(scene.readout());      // floating position readout follows the avatar
     frameId = requestAnimationFrame(loop);
   };
   frameId = requestAnimationFrame(loop);
@@ -1132,16 +1175,18 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
 }
 ```
 
-- [ ] **Step 4: Run tests + typecheck**
+- [ ] **Step 4: Run the full gate — the world swap is now complete**
 
-Run: `npx vitest run tests/world-wire.test.ts && npm run typecheck`
-Expected: PASS.
+Run: `npm run typecheck && npm run test`
+Expected: PASS (the whole project type-checks now that galaxy/router/main/scene/mount/wire are all consistent).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Make the single Phase-2 atomic commit**
 
 ```bash
-git add src/world/wire.ts tests/world-wire.test.ts
-git commit -m "feat(world): free-fly pointer/keyboard input wiring"
+git add src/core/galaxy.ts src/router.ts src/main.ts src/world/scene.ts \
+  src/world/mount.ts src/world/wire.ts \
+  tests/galaxy.test.ts tests/router.test.ts tests/world-wire.test.ts
+git commit -m "feat(world): free-fly galaxy world — spiral particles, follow-cam, free-fly input, routing"
 ```
 
 ---
@@ -1155,7 +1200,7 @@ git commit -m "feat(world): free-fly pointer/keyboard input wiring"
 - Test: `tests/flight-hud.test.ts`
 
 **Interfaces:**
-- Produces: `class FlightHud { constructor(root: HTMLElement); setSpeed(speed: number): void; dispose(): void }`.
+- Produces: `class FlightHud { constructor(root: HTMLElement); setSpeed(speed: number): void; setReadout(r: { x: number; y: number; pos: { x: number; y: number; z: number }; visible: boolean }): void; dispose(): void }`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1164,22 +1209,54 @@ git commit -m "feat(world): free-fly pointer/keyboard input wiring"
 import { describe, expect, it, vi } from 'vitest';
 import { FlightHud } from '../src/hud/flight-hud';
 
+/** Root whose querySelector returns a persistent element per selector, so writes are observable. */
 function makeRoot() {
-  const children: unknown[] = [];
-  return {
+  const els = new Map<string, { textContent: string; style: Record<string, string> }>();
+  const root = {
     innerHTML: '',
-    querySelector: vi.fn(() => ({ textContent: '' })),
-    replaceChildren: vi.fn(() => { children.length = 0; }),
-  } as unknown as HTMLElement;
+    querySelector: vi.fn((sel: string) => {
+      if (!els.has(sel)) els.set(sel, { textContent: '', style: {} });
+      return els.get(sel)!;
+    }),
+    replaceChildren: vi.fn(),
+  };
+  return { root: root as unknown as HTMLElement, el: (sel: string) => els.get(sel)! };
 }
 
 describe('FlightHud', () => {
-  it('renders a control hint and updates the speed readout', () => {
-    const root = makeRoot();
-    const hud = new FlightHud(root);
+  it('renders the control hint', () => {
+    const { root } = makeRoot();
+    new FlightHud(root);
     expect((root as unknown as { innerHTML: string }).innerHTML).toMatch(/steer/i);
+  });
+
+  it('updates the speed readout text', () => {
+    const { root, el } = makeRoot();
+    const hud = new FlightHud(root);
     hud.setSpeed(42.4);
-    hud.dispose();
+    expect(el('.flight-speed').textContent).toBe('42 u/s');
+  });
+
+  it('formats the floating position readout and positions it near the avatar', () => {
+    const { root, el } = makeRoot();
+    const hud = new FlightHud(root);
+    hud.setReadout({ x: 100, y: 200, pos: { x: 12, y: -34, z: 120 }, visible: true });
+    const r = el('.flight-readout');
+    expect(r.textContent).toBe('X +012  Y -034  Z +120');
+    expect(r.style.opacity).toBe('1');
+    expect(r.style.transform).toMatch(/translate\(/);
+  });
+
+  it('hides the readout when the avatar is off-screen', () => {
+    const { root, el } = makeRoot();
+    const hud = new FlightHud(root);
+    hud.setReadout({ x: 0, y: 0, pos: { x: 0, y: 0, z: 0 }, visible: false });
+    expect(el('.flight-readout').style.opacity).toBe('0');
+  });
+
+  it('clears the root on dispose', () => {
+    const { root } = makeRoot();
+    new FlightHud(root).dispose();
     expect((root as unknown as { replaceChildren: ReturnType<typeof vi.fn> }).replaceChildren).toHaveBeenCalled();
   });
 });
@@ -1196,25 +1273,41 @@ Expected: FAIL — module not found.
 // src/hud/flight-hud.ts
 import './hud.css';
 
-/** Minimal free-fly HUD: a control hint and a faint speed readout. No nodes. */
+const sign = (n: number) => (n >= 0 ? '+' : '-') + String(Math.round(Math.abs(n))).padStart(3, '0');
+
+/**
+ * Minimal free-fly HUD: a control hint, a faint speed readout, and a floating
+ * blue-digital position readout that tracks the avatar on screen. No nodes.
+ */
 export class FlightHud {
   private readonly root: HTMLElement;
   private readonly speedEl: HTMLElement;
+  private readonly readoutEl: HTMLElement;
 
   constructor(root: HTMLElement) {
     this.root = root;
     root.innerHTML = `
       <div class="hud-brand"><span class="hi">HI.</span> <span class="name">I’m Matt</span></div>
       <nav class="hud-nav" aria-label="Mode"><a href="?mode=list">[ list ]</a></nav>
+      <div class="flight-readout" aria-hidden="true"></div>
       <div class="hud-strip">
-        <span class="status">drag to steer · hold W to boost</span>
-        <span class="hint flight-speed">0</span>
+        <span class="status">drag to steer · hold W to boost · Esc for list</span>
+        <span class="hint flight-speed">0 u/s</span>
       </div>`;
     this.speedEl = root.querySelector('.flight-speed')!;
+    this.readoutEl = root.querySelector('.flight-readout')!;
   }
 
   setSpeed(speed: number): void {
     this.speedEl.textContent = `${Math.round(speed)} u/s`;
+  }
+
+  /** Floating coordinate readout, positioned just off the avatar's shoulder. */
+  setReadout(r: { x: number; y: number; pos: { x: number; y: number; z: number }; visible: boolean }): void {
+    if (!r.visible) { this.readoutEl.style.opacity = '0'; return; }
+    this.readoutEl.textContent = `X ${sign(r.pos.x)}  Y ${sign(r.pos.y)}  Z ${sign(r.pos.z)}`;
+    this.readoutEl.style.opacity = '1';
+    this.readoutEl.style.transform = `translate(${(r.x + 28).toFixed(1)}px, ${(r.y - 10).toFixed(1)}px)`;
   }
 
   dispose(): void {
@@ -1223,17 +1316,34 @@ export class FlightHud {
 }
 ```
 
-- [ ] **Step 4: Run the tests and make sure they pass**
+- [ ] **Step 4: Add the blue-digital readout styles to `src/hud/hud.css`**
+
+Append:
+
+```css
+/* Free-fly HUD: floating blue-digital position readout + monospace speed. */
+.flight-readout {
+  position: fixed; left: 0; top: 0; pointer-events: none;
+  font: 600 13px/1 ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  letter-spacing: 0.12em; color: #38bdf8;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.55), 0 0 1px rgba(56, 189, 248, 0.9);
+  opacity: 0; transition: opacity 120ms linear; white-space: nowrap;
+  will-change: transform, opacity;
+}
+.hud-strip .flight-speed { font-family: ui-monospace, Menlo, Consolas, monospace; color: #4ab3d4; }
+```
+
+- [ ] **Step 5: Run the tests and make sure they pass**
 
 Run: `npx vitest run tests/flight-hud.test.ts`
-Expected: PASS.
+Expected: PASS (5 tests).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 npm run typecheck
-git add src/hud/flight-hud.ts tests/flight-hud.test.ts
-git commit -m "feat(hud): minimal free-fly flight HUD"
+git add src/hud/flight-hud.ts src/hud/hud.css tests/flight-hud.test.ts
+git commit -m "feat(hud): free-fly HUD with floating blue-digital position readout"
 ```
 
 ---
@@ -1264,7 +1374,43 @@ test('a mission deep-link renders the list surface (portfolio intact)', async ({
   await expect(sections(page)).toHaveCount(6);
   await expect(page.locator('main#content')).toBeVisible();
 });
+
+test('the world canvas actually renders the galaxy (non-blank)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  // Sample the WebGL buffer across a few frames; the dark stardust must mark the white page.
+  const darkPixels = await page.evaluate(async () => {
+    const c = document.getElementById('scene') as HTMLCanvasElement;
+    const gl = (c.getContext('webgl2') || c.getContext('webgl')) as WebGLRenderingContext;
+    const W = c.width, H = c.height;
+    const px = new Uint8Array(W * H * 4);
+    let best = 0;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px); // read in-frame (no preserveDrawingBuffer)
+      let dark = 0;
+      for (let p = 0; p < px.length; p += 4) if (px[p]! < 230 || px[p + 1]! < 230 || px[p + 2]! < 230) dark++;
+      best = Math.max(best, dark);
+    }
+    return best;
+  });
+  expect(darkPixels).toBeGreaterThan(500);
+});
+
+test.describe('mobile / coarse pointer', () => {
+  test.use({ ...devices['iPhone 13'] });
+  test('falls back to the list surface (no free-fly without a fine pointer)', async ({ page }) => {
+    await page.goto('/'); // default rules: coarse pointer -> list
+    await expect(body(page)).toHaveAttribute('data-mode', 'list');
+    await expect(sections(page)).toHaveCount(6);
+    await expect(page.locator('main#content')).toBeVisible();
+  });
+});
 ```
+
+Add `devices` to the Playwright import at the top of the file:
+`import { expect, test, devices, type Page } from '@playwright/test';`
 
 (The existing helpers `body`, `sections` and the `list toggle`, `reduced motion`, `axe scan`, and `prerendered route` tests stay as-is. Delete the old `world mode advances through all six nodes…` and `deep link to maker bay in world mode spawns node 04` tests — that behavior is gone.)
 
