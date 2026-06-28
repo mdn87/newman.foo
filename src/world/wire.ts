@@ -6,7 +6,7 @@ import type { WorldScene } from './scene';
 const MAX_DT = 0.05;
 
 export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): () => void {
-  const flight = new FlightMachine();
+  const flight = new FlightMachine({ bound: 720, boundPush: 220 });
   const hud = new FlightHud(document.getElementById('hud-root')!);
   let aimX = 0, aimY = 0;
   // Track each thrust source independently so releasing one (e.g. W) doesn't

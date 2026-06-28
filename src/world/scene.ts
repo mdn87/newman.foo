@@ -14,7 +14,8 @@ const ASTRONAUT_ASPECT = 517 / 773, ASTRONAUT_HEIGHT = 2.6;
 const THRUSTER_ASPECT = 80 / 120;
 const CAM_BACK = 10, CAM_UP = 3.2, CAM_LAG = 4, LOOK_AHEAD = 8;
 const GALAXY_SPIN = 0.015; // rad/s, top-down (about y)
-const EXTENT = 260;        // matches flight bound
+const EXTENT = 700;        // vast, explorable galaxy — matches the flight soft-bound
+const GALAXY_RADIUS = 700;
 
 const v = (p: Vec3) => new THREE.Vector3(p.x, p.y, p.z);
 
@@ -22,7 +23,7 @@ const v = (p: Vec3) => new THREE.Vector3(p.x, p.y, p.z);
 function pointsMaterial(square: boolean): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     transparent: true, depthWrite: false, blending: THREE.NormalBlending,
-    uniforms: { uPixelRatio: { value: Math.min(devicePixelRatio, 2) }, uAvatar: { value: new THREE.Vector3() }, uFade: { value: 320 } },
+    uniforms: { uPixelRatio: { value: Math.min(devicePixelRatio, 2) }, uAvatar: { value: new THREE.Vector3() }, uFade: { value: 520 } },
     vertexShader: `
       attribute float aSize; attribute float aAlpha; attribute vec3 aColor;
       varying float vAlpha; varying vec3 vColor;
@@ -75,7 +76,7 @@ export class WorldScene {
     this.camera = new THREE.PerspectiveCamera(60, 1, 0.3, 4000);
 
     // Galaxy (round points, no distance fade).
-    const gf = makeSpiralGalaxy(seed, {});
+    const gf = makeSpiralGalaxy(seed, { radius: GALAXY_RADIUS, thickness: 30, count: 30000 });
     const gg = new THREE.BufferGeometry();
     setAttrs(gg, gf.positions, gf.sizes, gf.alphas, gf.colors);
     const galaxyMat = pointsMaterial(false);
@@ -84,7 +85,7 @@ export class WorldScene {
     this.scene.add(this.galaxy);
 
     // Dot grid (round, faint cyan, fades with distance).
-    const gpos = makeDotGrid({});
+    const gpos = makeDotGrid({ spacing: 70, extent: EXTENT });
     const gn = gpos.length / 3;
     const gsize = new Float32Array(gn).fill(1.1);
     const galpha = new Float32Array(gn).fill(0.5);
@@ -97,7 +98,7 @@ export class WorldScene {
     this.scene.add(this.grid);
 
     // Depth squares (square points, varied size, faint, distance fade).
-    const bodies = makeVolumeBodies(seed ^ 0x9e37, { extent: EXTENT });
+    const bodies = makeVolumeBodies(seed ^ 0x9e37, { extent: EXTENT, count: 240, maxSize: 14 });
     const sn = bodies.length;
     const spos = new Float32Array(sn * 3), ssize = new Float32Array(sn), salpha = new Float32Array(sn), scol = new Float32Array(sn * 3);
     bodies.forEach((b, i) => {
