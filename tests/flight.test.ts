@@ -19,12 +19,12 @@ describe('FlightMachine (game controls)', () => {
     expect(b.state.position.z).toBeLessThan(0);
   });
 
-  it('strafe gives a real left and right (not just forward)', () => {
-    const r = new FlightMachine(); run(r, I({ strafe: 1 }), 20);   // D
-    expect(r.state.position.x).toBeGreaterThan(0);
+  it('strafe gives a real left and right (screen-relative under the chase cam)', () => {
+    const r = new FlightMachine(); run(r, I({ strafe: 1 }), 20);   // D = screen-right = -x
+    expect(r.state.position.x).toBeLessThan(0);
     expect(Math.abs(r.state.position.z)).toBeLessThan(0.01);       // sideways, no forward creep
-    const l = new FlightMachine(); run(l, I({ strafe: -1 }), 20);  // A
-    expect(l.state.position.x).toBeLessThan(0);
+    const l = new FlightMachine(); run(l, I({ strafe: -1 }), 20);  // A = screen-left = +x
+    expect(l.state.position.x).toBeGreaterThan(0);
   });
 
   it('movement is relative to facing: yaw 90° then W moves along the new heading (+x)', () => {

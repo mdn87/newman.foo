@@ -4,8 +4,8 @@ import { FlightHud } from '../hud/flight-hud';
 import type { WorldScene } from './scene';
 
 const MAX_DT = 0.05;
-const LOOK_RATE = 2.6;   // passive mouse-look: rad/s at full screen offset (sensitive)
-const DRAG_SENS = 0.006; // left-drag swing: rad per px of drag
+const LOOK_RATE = 5.0;   // passive mouse-look: rad/s at full screen offset (tracks the pointer closely)
+const DRAG_SENS = 0.009; // left-drag swing: rad per px of drag
 
 export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): () => void {
   const flight = new FlightMachine({ bound: 720, boundPush: 220 });

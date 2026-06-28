@@ -67,8 +67,9 @@ export class FlightMachine {
     s.pitch = clamp(s.pitch + input.pitchDelta, -o.pitchLimit, o.pitchLimit);
     s.heading = headingFrom(s.yaw, s.pitch);
 
-    // Right vector = normalize(cross(worldUp(0,1,0), heading)) = (hz, 0, -hx).
-    let rx = s.heading.z, rz = -s.heading.x;
+    // Strafe "right" = screen-right under the chase cam (camera trails behind,
+    // looking along +heading), i.e. cross(heading, worldUp) = (-hz, 0, hx).
+    let rx = -s.heading.z, rz = s.heading.x;
     const rl = Math.hypot(rx, rz) || 1;
     rx /= rl; rz /= rl;
 
