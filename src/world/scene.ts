@@ -5,14 +5,16 @@ import type { Vec3 } from '../core/types';
 import { makeSpiralGalaxy } from '../core/galaxy';
 import { makeGridLines } from '../core/grid';
 import { makeVolumeBodies } from '../core/parallax';
-import astronautUrl from '../assets/astronaut-alpha.png';
 
 // galaxy-thruster.svg lives in public/ — reference it by URL, never `import` it.
 const THRUSTER_URL = '/artwork/galaxy/galaxy-thruster.svg';
 const BG = 0xffffff;
-const ASTRONAUT_ASPECT = 517 / 773, ASTRONAUT_HEIGHT = 2.6;
 const THRUSTER_ASPECT = 80 / 120;
-const CAM_BACK = 10, CAM_UP = 3.2, CAM_LAG = 4, LOOK_AHEAD = 8;
+const ARROW_LEN = 3.6;
+// Chase cam: CAM_TURN is how fast the trail eases toward the facing (low = the
+// camera barely swings when you look); CAM_LOOK_LAG keeps the avatar centered.
+const CAM_BACK = 11, CAM_UP = 3.4, CAM_LAG = 5, CAM_LOOK_LAG = 12, CAM_TURN = 1.5;
+const FORWARD = new THREE.Vector3(0, 0, 1);
 const GALAXY_SPIN = 0.015; // rad/s, top-down (about y)
 const EXTENT = 700;        // vast, explorable galaxy — matches the flight soft-bound
 const GALAXY_RADIUS = 700;
@@ -80,8 +82,9 @@ export class WorldScene {
   private readonly galaxy: THREE.Points;
   private readonly grid: THREE.LineSegments;
   private readonly squares: THREE.Points;
-  private readonly avatar: THREE.Sprite;
+  private readonly avatar: THREE.Object3D;
   private readonly thruster: THREE.Sprite;
+  private readonly camDir = new THREE.Vector3(0, 0, 1);
   private readonly gridMat: THREE.ShaderMaterial;
   private readonly squareMat: THREE.ShaderMaterial;
   private readonly camPos = new THREE.Vector3(0, CAM_UP, -CAM_BACK);
@@ -126,11 +129,19 @@ export class WorldScene {
     this.squares = new THREE.Points(sqGeom, this.squareMat);
     this.scene.add(this.squares);
 
-    // Avatar + thruster.
-    const aTex = new THREE.TextureLoader().load(astronautUrl); aTex.colorSpace = THREE.SRGBColorSpace;
-    this.avatar = new THREE.Sprite(new THREE.SpriteMaterial({ map: aTex, transparent: true, depthWrite: false, depthTest: false }));
-    this.avatar.scale.set(ASTRONAUT_HEIGHT * ASTRONAUT_ASPECT, ASTRONAUT_HEIGHT, 1);
-    this.avatar.renderOrder = 10;
+    // Avatar: a little rocket-dart (nose cone + tail fins) so its facing AND roll
+    // read clearly from the chase cam. A real 3D mesh, not a billboard.
+    const arrow = new THREE.Group();
+    const bodyGeo = new THREE.ConeGeometry(0.7, ARROW_LEN, 6);
+    bodyGeo.rotateX(Math.PI / 2); // apex now points +z (forward)
+    arrow.add(new THREE.Mesh(bodyGeo, new THREE.MeshBasicMaterial({ color: 0x2b7e9e })));
+    const finGeo = new THREE.BoxGeometry(0.1, 1.7, 1.3);
+    const finMat = new THREE.MeshBasicMaterial({ color: 0x184f68 });
+    const finV = new THREE.Mesh(finGeo, finMat); finV.position.z = -ARROW_LEN * 0.32;
+    const finH = finV.clone(); finH.rotation.z = Math.PI / 2;
+    arrow.add(finV, finH);
+    arrow.renderOrder = 10;
+    this.avatar = arrow;
     this.scene.add(this.avatar);
 
     const tTex = new THREE.TextureLoader().load(THRUSTER_URL); tTex.colorSpace = THREE.SRGBColorSpace;
@@ -153,28 +164,30 @@ export class WorldScene {
     const pos = v(flight.position);
     const head = v(flight.heading).normalize();
 
-    // Follow-cam: trail behind + above, lerped so it banks through turns.
-    const want = pos.clone().addScaledVector(head, -CAM_BACK).add(new THREE.Vector3(0, CAM_UP, 0));
-    const a = 1 - Math.exp(-CAM_LAG * dt);
-    this.camPos.lerp(want, a);
-    this.lookAt.lerp(pos.clone().addScaledVector(head, LOOK_AHEAD), a);
+    // Chase cam: ease the trail direction toward the facing SLOWLY (so looking
+    // around rotates the arrow without the camera swinging) and keep the avatar
+    // centered with no roll — steadier, focused framing.
+    this.camDir.lerp(head, 1 - Math.exp(-CAM_TURN * dt));
+    if (this.camDir.lengthSq() < 1e-6) this.camDir.copy(head);
+    this.camDir.normalize();
+    const want = pos.clone().addScaledVector(this.camDir, -CAM_BACK).add(new THREE.Vector3(0, CAM_UP, 0));
+    this.camPos.lerp(want, 1 - Math.exp(-CAM_LAG * dt));
+    this.lookAt.lerp(pos, 1 - Math.exp(-CAM_LOOK_LAG * dt));
     this.camera.position.copy(this.camPos);
-    this.camera.up.set(Math.sin(flight.bank), Math.cos(flight.bank), 0); // roll into turns
+    this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.lookAt);
 
-    // Avatar pinned at flight position, rolled by bank.
+    // Avatar: orient the arrow along the heading, rolled by bank.
     this.avatar.position.copy(pos);
-    this.avatar.material.rotation = flight.bank;
+    this.avatar.quaternion.setFromUnitVectors(FORWARD, head);
+    this.avatar.rotateZ(flight.bank);
 
-    // Thruster behind/under the avatar, scaled by throttle.
+    // Thruster: a flame at the arrow's tail, scaled by throttle.
     const thrust = flight.throttle;
     if (thrust > 0.02) {
-      const camUp = this.camera.up.clone().normalize();
-      const flameH = ASTRONAUT_HEIGHT * (0.5 + 1.25 * thrust);
+      const flameH = 1.8 * (0.45 + 0.9 * thrust);
       this.thruster.scale.set(flameH * THRUSTER_ASPECT, flameH, 1);
-      this.thruster.position.copy(pos)
-        .addScaledVector(camUp, -(ASTRONAUT_HEIGHT * 0.42 + flameH * 0.5))
-        .addScaledVector(head, -0.4 * thrust);
+      this.thruster.position.copy(pos).addScaledVector(head, -(ARROW_LEN * 0.55 + flameH * 0.4));
       this.thruster.material.opacity = 0.4 + 0.55 * thrust;
       this.thruster.visible = true;
     } else {
