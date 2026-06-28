@@ -16,6 +16,7 @@ export interface FlightInput {
 export interface FlightState {
   position: Vec3; velocity: Vec3; heading: Vec3;
   yaw: number; pitch: number; bank: number; throttle: number; speed: number;
+  surge: number; strafe: number; // last movement intents (-1..1), for thruster visuals
 }
 
 export interface FlightOpts {
@@ -54,6 +55,7 @@ export class FlightMachine {
     this.state = {
       position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
       heading: headingFrom(0, 0), yaw: 0, pitch: 0, bank: 0, throttle: 0, speed: 0,
+      surge: 0, strafe: 0,
     };
   }
 
@@ -79,6 +81,8 @@ export class FlightMachine {
     const fz = s.heading.z * input.forward + rz * input.strafe;
     const mag = Math.hypot(fx, fy, fz);
 
+    s.surge = clamp(input.forward, -1, 1);
+    s.strafe = clamp(input.strafe, -1, 1);
     s.throttle = ease(s.throttle, mag > 0 ? 1 : 0, o.throttleEase);
     if (mag > 1e-6) {
       const a = (o.accel * s.throttle * dt) / mag;

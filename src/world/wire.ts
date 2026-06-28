@@ -4,16 +4,15 @@ import { FlightHud } from '../hud/flight-hud';
 import type { WorldScene } from './scene';
 
 const MAX_DT = 0.05;
-const LOOK_RATE = 5.0;   // passive mouse-look: rad/s at full screen offset (tracks the pointer closely)
-const DRAG_SENS = 0.009; // left-drag swing: rad per px of drag
+const STEER_RATE = 0.009; // drag-steer: rad/s of turn per px of drag offset from the press point
 
 export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): () => void {
   const flight = new FlightMachine({ bound: 720, boundPush: 220 });
   const hud = new FlightHud(document.getElementById('hud-root')!);
 
-  let aimX = 0, aimY = 0;            // passive pointer offset from center (-1..1)
-  let dragDX = 0, dragDY = 0;        // accumulated left-drag deltas (consumed each frame)
-  let dragging = false;             // left button held
+  // Drag-to-fly: while the left button is held, the cursor's offset from where it
+  // was pressed steers like a flight stick — drag left -> nose left, drag up -> up.
+  let dragging = false, pressX = 0, pressY = 0, dragX = 0, dragY = 0;
   let rightHeld = false;            // right button -> forward thrust
   const keys = new Set<string>();   // movement keys currently down
 
@@ -22,18 +21,15 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
   const forward = () => (has('w', 'ArrowUp') || rightHeld ? 1 : 0) - (has('s', 'ArrowDown') ? 1 : 0);
   const strafe = () => (has('d', 'ArrowRight') ? 1 : 0) - (has('a', 'ArrowLeft') ? 1 : 0);
 
-  const onPointerMove = (e: { clientX: number; clientY: number; movementX?: number; movementY?: number }) => {
-    const w = innerWidth, h = innerHeight;
-    aimX = Math.max(-1, Math.min(1, (e.clientX - w / 2) / (w / 2)));
-    aimY = Math.max(-1, Math.min(1, (e.clientY - h / 2) / (h / 2)));
-    if (dragging) { dragDX += e.movementX ?? 0; dragDY += e.movementY ?? 0; } // swing the view
+  const onPointerMove = (e: { clientX: number; clientY: number }) => {
+    if (dragging) { dragX = e.clientX - pressX; dragY = e.clientY - pressY; }
   };
-  const onPointerDown = (e: { button?: number }) => {
-    if ((e.button ?? 0) === 0) dragging = true;
+  const onPointerDown = (e: { button?: number; clientX: number; clientY: number }) => {
+    if ((e.button ?? 0) === 0) { dragging = true; pressX = e.clientX; pressY = e.clientY; dragX = 0; dragY = 0; }
     else if (e.button === 2) rightHeld = true;
   };
   const onPointerUp = (e: { button?: number }) => {
-    if ((e.button ?? 0) === 0) dragging = false;
+    if ((e.button ?? 0) === 0) { dragging = false; dragX = 0; dragY = 0; }
     else if (e.button === 2) rightHeld = false;
   };
   const onContextMenu = (e: { preventDefault?: () => void }) => e.preventDefault?.(); // right-click = thrust, no menu
@@ -58,10 +54,9 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
     if (stopped) return;
     const dt = Math.min(MAX_DT, Math.max(0, (now - last) / 1000));
     last = now;
-    // Look = gentle passive offset (rate*dt) + deliberate drag swing (delta).
-    const yawDelta = aimX * LOOK_RATE * dt + dragDX * DRAG_SENS;
-    const pitchDelta = -aimY * LOOK_RATE * dt - dragDY * DRAG_SENS;
-    dragDX = 0; dragDY = 0;
+    // Steer only while dragging: drag left (dragX<0) -> yaw+ -> nose to screen-left.
+    const yawDelta = dragging ? -dragX * STEER_RATE * dt : 0;
+    const pitchDelta = dragging ? -dragY * STEER_RATE * dt : 0;
     flight.tick(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe() });
     scene.frame(dt, flight.state);
     hud.setSpeed(flight.state.speed);

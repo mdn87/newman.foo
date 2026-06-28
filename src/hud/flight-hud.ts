@@ -18,7 +18,7 @@ export class FlightHud {
       <nav class="hud-nav" aria-label="Mode"><a href="?mode=list">[ list ]</a></nav>
       <div class="flight-readout" aria-hidden="true"></div>
       <div class="hud-strip">
-        <span class="status">WASD / arrows move · mouse + drag to look · right-click boost · Esc list</span>
+        <span class="status">WASD / arrows move · drag to steer · right-click boost · Esc list</span>
         <span class="hint flight-speed">0 u/s</span>
       </div>`;
     this.speedEl = root.querySelector('.flight-speed')!;

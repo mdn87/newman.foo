@@ -84,6 +84,7 @@ export class WorldScene {
   private readonly squares: THREE.Points;
   private readonly avatar: THREE.Object3D;
   private readonly thruster: THREE.Sprite;
+  private readonly sideThruster: THREE.Sprite;
   private readonly camDir = new THREE.Vector3(0, 0, 1);
   private readonly gridMat: THREE.ShaderMaterial;
   private readonly squareMat: THREE.ShaderMaterial;
@@ -148,6 +149,9 @@ export class WorldScene {
     this.thruster = new THREE.Sprite(new THREE.SpriteMaterial({ map: tTex, transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
     this.thruster.renderOrder = 9; this.thruster.visible = false;
     this.scene.add(this.thruster);
+    this.sideThruster = new THREE.Sprite(new THREE.SpriteMaterial({ map: tTex, transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
+    this.sideThruster.renderOrder = 9; this.sideThruster.visible = false;
+    this.scene.add(this.sideThruster);
 
     this.resize();
   }
@@ -182,9 +186,9 @@ export class WorldScene {
     this.avatar.quaternion.setFromUnitVectors(FORWARD, head);
     this.avatar.rotateZ(flight.bank);
 
-    // Thruster: a flame at the arrow's tail, scaled by throttle.
+    // Rear thruster fires on forward thrust; a side thruster bursts on strafe.
     const thrust = flight.throttle;
-    if (thrust > 0.02) {
+    if (flight.surge > 0.02 && thrust > 0.02) {
       const flameH = 1.8 * (0.45 + 0.9 * thrust);
       this.thruster.scale.set(flameH * THRUSTER_ASPECT, flameH, 1);
       this.thruster.position.copy(pos).addScaledVector(head, -(ARROW_LEN * 0.55 + flameH * 0.4));
@@ -192,6 +196,18 @@ export class WorldScene {
       this.thruster.visible = true;
     } else {
       this.thruster.visible = false;
+    }
+    if (Math.abs(flight.strafe) > 0.02) {
+      const rightVec = new THREE.Vector3(-head.z, 0, head.x).normalize();
+      const side = flight.strafe > 0 ? -1 : 1; // moving screen-right -> RCS burst from the LEFT side
+      const sh = 1.3;
+      this.sideThruster.scale.set(sh * THRUSTER_ASPECT, sh, 1);
+      this.sideThruster.position.copy(pos).addScaledVector(rightVec, side * 0.95);
+      this.sideThruster.material.rotation = side * (Math.PI / 2); // flame points outward
+      this.sideThruster.material.opacity = 0.85;
+      this.sideThruster.visible = true;
+    } else {
+      this.sideThruster.visible = false;
     }
 
     // Galaxy turns slowly; grid/squares fade around the avatar.
