@@ -14,7 +14,7 @@ export default defineConfig({
       treeshake: {
         // rapier_wasm3d.js has a critical side effect (__wbg_set_wasm call) that
         // Rollup would otherwise optimize away when resolving the re-export chain.
-        moduleSideEffects: (id) => id.includes('rapier_wasm3d') || id.includes('@dimforge'),
+        moduleSideEffects: (id) => id.includes('rapier_wasm3d'),
       },
       output: {
         manualChunks: { three: ['three'] },

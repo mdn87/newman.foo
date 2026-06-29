@@ -59,8 +59,9 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
     const yawDelta = dragging ? -dragX * STEER_RATE * dt : 0;
     const pitchDelta = dragging ? -dragY * STEER_RATE * dt : 0;
     dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost() });
-    scene.frame(dt, dart.state());
-    hud.setSpeed(dart.state().speed);
+    const s = dart.state();
+    scene.frame(dt, s);
+    hud.setSpeed(s.speed);
     hud.setReadout(scene.readout());
     frameId = requestAnimationFrame(loop);
   };
