@@ -1,3 +1,7 @@
+// Side-effect import: forces rapier_wasm3d.js into the bundle so __wbg_set_wasm
+// is called and the Rapier WASM module is bound before any World is created.
+// Without this, Rollup optimises the re-export chain and skips the init glue.
+import '@dimforge/rapier3d/rapier_wasm3d.js';
 import type { FlightInput, FlightState } from '../core/flight-types';
 import {
   DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce,

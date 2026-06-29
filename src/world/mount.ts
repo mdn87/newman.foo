@@ -20,7 +20,7 @@ export async function mountWorld(opts: MountOpts): Promise<WorldCleanup> {
     addEventListener('resize', onResize);
 
     const { wireWorld } = await import('./wire');
-    cleanupWire = wireWorld(scene, opts);
+    cleanupWire = await wireWorld(scene, opts);
 
     let cleaned = false;
     return () => {

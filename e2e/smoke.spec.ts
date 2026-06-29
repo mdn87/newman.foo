@@ -74,7 +74,7 @@ test('home in world mode boots the free-fly galaxy canvas', async ({ page }) => 
   await page.goto('/?mode=world');
   await expect(body(page)).toHaveAttribute('data-mode', 'world');
   await expect(page.locator('canvas#scene')).toBeVisible();
-  await expect(page.locator('.hud-strip .status')).toContainText(/move/i);
+  await expect(page.locator('.hud-strip .status')).toContainText(/move/i, { timeout: 10_000 }); // WASM init can take a moment
 });
 
 test('a mission deep-link renders the list surface (portfolio intact)', async ({ page }) => {
@@ -105,6 +105,28 @@ test('the world canvas actually renders the galaxy (non-blank)', async ({ page }
     return best;
   });
   expect(darkPixels).toBeGreaterThan(500);
+});
+
+test('rapier physics: holding W accelerates the dart, releasing glides it back to rest', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+
+  const speed = page.locator('.flight-speed');
+  await expect(speed).toHaveText('0 u/s', { timeout: 10_000 }); // wait for WASM init + HUD mount
+
+  await page.locator('canvas#scene').click(); // focus the document for key events
+  await page.keyboard.down('w');
+  await expect(async () => {
+    const txt = await speed.textContent();
+    expect(parseInt(txt ?? '0', 10)).toBeGreaterThan(5);
+  }).toPass({ timeout: 4000 });
+
+  await page.keyboard.up('w');
+  await expect(async () => {
+    const txt = await speed.textContent();
+    expect(parseInt(txt ?? '999', 10)).toBeLessThan(2);
+  }).toPass({ timeout: 8000 });
 });
 
 test.describe('mobile / coarse pointer', () => {

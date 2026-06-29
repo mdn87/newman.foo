@@ -11,6 +11,33 @@ const hudMocks = vi.hoisted(() => {
 });
 vi.mock('../src/hud/flight-hud', () => ({ FlightHud: hudMocks.FlightHud }));
 
+const dartMocks = vi.hoisted(() => {
+  const instances: Array<{
+    step: ReturnType<typeof vi.fn>;
+    state: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
+  }> = [];
+  const DartPhysics = {
+    create: vi.fn(async () => {
+      const inst = {
+        step: vi.fn(),
+        state: vi.fn(() => ({
+          position: { x: 0, y: 0, z: 0 },
+          velocity: { x: 0, y: 0, z: 0 },
+          heading: { x: 0, y: 0, z: -1 },
+          yaw: 0, pitch: 0, bank: 0, throttle: 0,
+          speed: 0, surge: 0, strafe: 0,
+        })),
+        dispose: vi.fn(),
+      };
+      instances.push(inst);
+      return inst;
+    }),
+  };
+  return { DartPhysics, instances };
+});
+vi.mock('../src/physics/dart', () => ({ DartPhysics: dartMocks.DartPhysics }));
+
 import { wireWorld } from '../src/world/wire';
 
 function makeEventTarget() {
@@ -41,6 +68,7 @@ describe('wireWorld (free-fly)', () => {
   let win: ReturnType<typeof makeEventTarget>;
   beforeEach(() => {
     hudMocks.instances.length = 0; hudMocks.FlightHud.mockClear();
+    dartMocks.instances.length = 0; dartMocks.DartPhysics.create.mockClear();
     win = makeEventTarget();
     vi.stubGlobal('addEventListener', win.addEventListener);
     vi.stubGlobal('removeEventListener', win.removeEventListener);
@@ -49,36 +77,38 @@ describe('wireWorld (free-fly)', () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it('drives scene.frame every animation frame', () => {
+  it('drives scene.frame every animation frame', async () => {
     const { cbs } = installFrame();
     const scene = makeScene();
-    const cleanup = wireWorld(scene, { reducedMotion: false });
+    const cleanup = await wireWorld(scene, { reducedMotion: false });
     cbs.get(1)!(performance.now() + 16); // first frame
     expect(scene.frame).toHaveBeenCalledTimes(1);
     expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ position: expect.any(Object) }));
     cleanup();
   });
 
-  it('thrusts while a thrust key is held and stops on release', () => {
+  it('thrusts while a thrust key is held and stops on release', async () => {
     const { cbs } = installFrame();
     const scene = makeScene();
-    const cleanup = wireWorld(scene, { reducedMotion: false });
+    const cleanup = await wireWorld(scene, { reducedMotion: false });
     win.dispatch('keydown', { key: 'w' });
     const t0 = performance.now();
     for (let f = 1; f <= 30; f++) cbs.get(f)!(t0 + f * 16);
-    const movedState = (scene.frame as ReturnType<typeof vi.fn>).mock.calls.at(-1)![1];
-    expect(movedState.speed).toBeGreaterThan(0);
+    expect(dartMocks.instances[0]!.step).toHaveBeenCalled();
+    const lastCall = dartMocks.instances[0]!.step.mock.calls.at(-1) as [number, { forward: number }];
+    expect(lastCall[1].forward).toBe(1);
     cleanup();
   });
 
-  it('cleanup cancels the loop and removes every listener', () => {
+  it('cleanup cancels the loop and removes every listener', async () => {
     const { cbs } = installFrame();
-    const cleanup = wireWorld(makeScene(), { reducedMotion: false });
+    const cleanup = await wireWorld(makeScene(), { reducedMotion: false });
     cbs.get(1)!(performance.now() + 16);
     const before = win.count();
     expect(before).toBeGreaterThan(0);
     cleanup();
     expect(win.count()).toBe(0);
     expect(hudMocks.instances[0]!.dispose).toHaveBeenCalledTimes(1);
+    expect(dartMocks.instances[0]!.dispose).toHaveBeenCalledTimes(1);
   });
 });

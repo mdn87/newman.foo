@@ -1,13 +1,13 @@
 // src/world/wire.ts
-import { FlightMachine } from '../core/flight';
+import { DartPhysics } from '../physics/dart';
 import { FlightHud } from '../hud/flight-hud';
 import type { WorldScene } from './scene';
 
 const MAX_DT = 0.05;
 const STEER_RATE = 0.009; // drag-steer: rad/s of turn per px of drag offset from the press point
 
-export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): () => void {
-  const flight = new FlightMachine({ bound: 720, boundPush: 220 });
+export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): Promise<() => void> {
+  const dart = await DartPhysics.create({ bound: 720, boundPush: 220 });
   const hud = new FlightHud(document.getElementById('hud-root')!);
 
   // Drag-to-fly: while the left button is held, the cursor's offset from where it
@@ -18,8 +18,9 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
 
   const norm = (k: string) => (k.length === 1 ? k.toLowerCase() : k);
   const has = (...k: string[]) => k.some((x) => keys.has(x));
-  const forward = () => (has('w', 'ArrowUp') || rightHeld ? 1 : 0) - (has('s', 'ArrowDown') ? 1 : 0);
+  const forward = () => (has('w', 'ArrowUp') ? 1 : 0) - (has('s', 'ArrowDown') ? 1 : 0);
   const strafe = () => (has('d', 'ArrowRight') ? 1 : 0) - (has('a', 'ArrowLeft') ? 1 : 0);
+  const boost = () => rightHeld;
 
   const onPointerMove = (e: { clientX: number; clientY: number }) => {
     if (dragging) { dragX = e.clientX - pressX; dragY = e.clientY - pressY; }
@@ -57,9 +58,9 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
     // Steer only while dragging: drag left (dragX<0) -> yaw+ -> nose to screen-left.
     const yawDelta = dragging ? -dragX * STEER_RATE * dt : 0;
     const pitchDelta = dragging ? -dragY * STEER_RATE * dt : 0;
-    flight.tick(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe() });
-    scene.frame(dt, flight.state);
-    hud.setSpeed(flight.state.speed);
+    dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost() });
+    scene.frame(dt, dart.state());
+    hud.setSpeed(dart.state().speed);
     hud.setReadout(scene.readout());
     frameId = requestAnimationFrame(loop);
   };
@@ -76,5 +77,6 @@ export function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }):
     removeEventListener('keydown', onKeyDown as unknown as EventListener);
     removeEventListener('keyup', onKeyUp as unknown as EventListener);
     hud.dispose();
+    dart.dispose();
   };
 }

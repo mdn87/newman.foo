@@ -6,7 +6,7 @@ import { gzipSync } from 'node:zlib';
 export const LIMITS = {
   fallback: 150_000,
   world: 250_000,
-  worldWasm: 600_000, // PROVISIONAL — tighten to the measured Rapier gzip before merge
+  worldWasm: 585_000, // measured: 531 614 bytes gzip + ~10% headroom
   totalJsCss: 400_000,
   homepageMedia: 300_000,
 };
@@ -186,6 +186,26 @@ export function measureBudgets({ dist = join(process.cwd(), 'dist') } = {}) {
   // regardless of how Rollup keys the chunk (it may hoist to a shared _name).
   const worldRoots = [...directDynamicImports(manifest, entryKeys)];
   const worldAssets = collectManifestAssets(manifest, worldRoots, { includeDynamic: true });
+
+  // Vite emits wasm files from node_modules as top-level manifest entries (no parent
+  // chunk lists them in `assets`). Attribute each such wasm to worldAssets when a JS
+  // chunk from the same npm package is already in worldAssets.
+  for (const [key, chunk] of Object.entries(manifest)) {
+    if (!key.endsWith('.wasm') || !chunk.file) continue;
+    if (worldAssets.has(chunk.file) || fallbackAssets.has(chunk.file)) continue;
+    // Derive the package prefix for this wasm (e.g. "node_modules/@dimforge/rapier3d/")
+    const nodeModulesIdx = key.indexOf('node_modules/');
+    if (nodeModulesIdx === -1) continue;
+    const afterNm = key.slice(nodeModulesIdx + 'node_modules/'.length);
+    const parts = afterNm.split('/');
+    const pkgName = parts[0]?.startsWith('@') ? parts.slice(0, 2).join('/') : parts[0];
+    const pkgPrefix = key.slice(0, nodeModulesIdx + 'node_modules/'.length) + pkgName + '/';
+    const pkgInWorld = [...worldAssets].some((f) => {
+      // Find any manifest chunk whose file is f and whose src is under pkgPrefix
+      return Object.values(manifest).some((c) => c.file === f && c.src?.startsWith(pkgPrefix));
+    });
+    if (pkgInWorld) worldAssets.add(chunk.file);
+  }
 
   let fallback = gzipBytes(homepage);
   let world = 0;
