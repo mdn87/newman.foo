@@ -21,10 +21,15 @@ This is the first slice of sub-project B (collision world). It builds directly o
 - **Chase cam:** keep today's steady, centered, level-horizon framing — just
   **snappier** (less trail-lag behind the nose). No roll.
 - **Obstacles are DYNAMIC, mass-varied.** Each has a seeded `size` (radius) and
-  `density`; `mass = (4/3)π·r³·density`, normalized so the field median ≈ the
-  ship's mass. Rapier momentum exchange then gives: equal-mass → symmetric
-  ricochet; lighter object → it flies off, ship barely moves; heavier / denser
-  object → ship bounces off, object barely moves.
+  `density`. **Mass is `clamp(sizeFactor · densFactor)`** — a size term AND a
+  density term, each a normalized factor, multiplied. Density is given the WIDER
+  range so it can dominate: a small-but-very-dense "core" out-masses a large light
+  object and exceeds the ship's mass. (A strict `r³·density` model was rejected
+  because the `r³` term makes size dominate, which would make a small dense dot
+  always light — contradicting the intended "small dense core is heavy" feel.)
+  Rapier momentum exchange then gives: equal-mass → symmetric ricochet; lighter
+  object → it flies off, ship barely moves; heavier / denser object → ship bounces
+  off, object barely moves.
 - **Darker = denser.** Object color encodes density.
 - **Central region only.** Obstacles fill a central cube; the outer gridlines
   stay visual-only.
@@ -52,9 +57,11 @@ Out of scope (future):
 |---|---|---|
 | central extent | ±180 (ticks at 90 → 5³ = **125 objects**) | aligned to existing gridline intersections |
 | radius range | [2, 9] | seeded uniform |
-| density range | [0.2, 15] | wide, so a *small super-dense* object can still out-mass the ship (darker=denser) |
+| density range | [0.2, 15] | drives the density mass-factor (darker=denser) |
 | ship reference mass M₀ | 1 | dart keeps mass 1 so existing thrust feel is unchanged |
-| obstacle mass factor k | `raw/ref`, clamped [0.1, 8] | `raw = (4/3)πr³·density`; `ref` = raw at mid radius+density so median k ≈ 1 |
+| size mass-factor | radius [2,9] → [0.7, 1.6] | size's pull on mass (≈2.3× across the range) |
+| density mass-factor | density [0.2,15] → [0.4, 4.0] | density's pull (≈10×) — wider than size so a *small super-dense* core can out-mass a *large light* object and exceed the ship |
+| obstacle mass | `clamp(sizeFactor · densFactor, 0.1, 8)` | both terms multiplied; e.g. small+dense 0.7·4.0=2.8 (>ship) vs big+light 1.6·0.4=0.64; `obstacleMass()` is a pure exported helper |
 | restitution | 0.6 | on dart + obstacle colliders |
 | obstacle damping | linear 0.8, angular 0.8 | knocked objects drift then settle |
 | dart collider | ball, r ≈ 1.6 | |
