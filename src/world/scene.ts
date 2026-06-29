@@ -242,7 +242,8 @@ export class WorldScene {
     // Obstacles move when hit — stream live positions into the cloud.
     if (this.obstacles && this.obstaclePos && obstaclePositions) {
       const buf = this.obstaclePos;
-      for (let i = 0; i < obstaclePositions.length; i++) {
+      const count = Math.min(obstaclePositions.length, buf.length / 3);
+      for (let i = 0; i < count; i++) {
         const p = obstaclePositions[i]!.pos;
         buf[i * 3] = p.x; buf[i * 3 + 1] = p.y; buf[i * 3 + 2] = p.z;
       }
