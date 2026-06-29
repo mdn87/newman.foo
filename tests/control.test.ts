@@ -27,6 +27,12 @@ describe('control (pure mapping)', () => {
     expect(Math.hypot(r.x, r.y, r.z)).toBeCloseTo(1, 6);
   });
 
+  it('rightFrom returns a unit vector even for a (near-)vertical heading', () => {
+    const r = rightFrom({ x: 0, y: 1, z: 0 });
+    expect(Math.hypot(r.x, r.y, r.z)).toBeCloseTo(1, 6);
+    expect(r.y).toBe(0);
+  });
+
   it('integrateFacing adds yaw and clamps pitch', () => {
     const f = integrateFacing(0, 0, I({ yawDelta: 0.2, pitchDelta: -5 }), O.pitchLimit);
     expect(f.yaw).toBeCloseTo(0.2, 6);

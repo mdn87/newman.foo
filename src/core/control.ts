@@ -24,12 +24,17 @@ export function headingFrom(yaw: number, pitch: number): Vec3 {
 
 /** Screen-right under the chase cam: cross(heading, worldUp) normalized. */
 export function rightFrom(h: Vec3): Vec3 {
-  let rx = -h.z, rz = h.x;
-  const rl = Math.hypot(rx, rz) || 1;
+  const rx = -h.z, rz = h.x;
+  const rl = Math.hypot(rx, rz);
+  // Degenerate only if heading is exactly vertical; pitchLimit (1.3 < pi/2)
+  // prevents that in practice, but fall back to a unit perpendicular for safety.
+  if (rl < 1e-9) return { x: 1, y: 0, z: 0 };
   return { x: rx / rl, y: 0, z: rz / rl };
 }
 
-export function integrateFacing(yaw: number, pitch: number, input: FlightInput, pitchLimit: number) {
+// `pitchDelta`/`yawDelta` arrive pre-scaled by the caller (wire layer); the
+// pitch clamp is the safety bound, not a rate limiter.
+export function integrateFacing(yaw: number, pitch: number, input: FlightInput, pitchLimit: number): { yaw: number; pitch: number } {
   return { yaw: yaw + input.yawDelta, pitch: clamp(pitch + input.pitchDelta, -pitchLimit, pitchLimit) };
 }
 
