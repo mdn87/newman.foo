@@ -33,6 +33,31 @@ describe('budget checker', () => {
     tempDirs = [];
   });
 
+  it('counts a world-chunk .wasm asset in the worldWasm row', () => {
+    const dist = makeDist();
+    const files = {
+      'index.html': '<script type="module" src="/assets/index-a.js"></script>',
+      'assets/index-a.js': 'console.log("entry");',
+      'assets/chunk-alpha.js': 'console.log("world mount");',
+      'assets/physics.wasm': 'fake-wasm-bytes-fake-wasm-bytes-fake-wasm-bytes',
+    };
+    for (const [name, text] of Object.entries(files)) writeFile(dist, name, text);
+    writeFile(dist, '.vite/manifest.json', JSON.stringify({
+      'index.html': {
+        file: 'assets/index-a.js',
+        isEntry: true,
+        dynamicImports: ['src/world/mount.ts'],
+      },
+      'src/world/mount.ts': {
+        file: 'assets/chunk-alpha.js',
+        isDynamicEntry: true,
+        assets: ['assets/physics.wasm'],
+      },
+    }));
+
+    expect(measureBudgets({ dist }).worldWasm).toBe(gz(files['assets/physics.wasm']));
+  });
+
   it('uses the Vite manifest graph for world chunks instead of filename prefixes', () => {
     const dist = makeDist();
     const files = {

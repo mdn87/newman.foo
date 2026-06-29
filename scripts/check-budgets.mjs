@@ -6,11 +6,13 @@ import { gzipSync } from 'node:zlib';
 export const LIMITS = {
   fallback: 150_000,
   world: 250_000,
+  worldWasm: 600_000, // PROVISIONAL — tighten to the measured Rapier gzip before merge
   totalJsCss: 400_000,
   homepageMedia: 300_000,
 };
 
 const JS_CSS = new Set(['.js', '.css']);
+const WASM = new Set(['.wasm']);
 const MEDIA = new Set([
   '.avif',
   '.eot',
@@ -187,10 +189,15 @@ export function measureBudgets({ dist = join(process.cwd(), 'dist') } = {}) {
 
   let fallback = gzipBytes(homepage);
   let world = 0;
+  let worldWasm = 0;
   let totalJsCss = 0;
 
   for (const [name, size] of fileSizes) {
     const ext = extname(name);
+    if (WASM.has(ext)) {
+      if (worldAssets.has(name) && !fallbackAssets.has(name)) worldWasm += size;
+      continue;
+    }
     if (!JS_CSS.has(ext)) continue;
     totalJsCss += size;
     if (fallbackAssets.has(name)) fallback += size;
@@ -209,13 +216,14 @@ export function measureBudgets({ dist = join(process.cwd(), 'dist') } = {}) {
     homepageMedia += fileSizes.get(ref) ?? 0;
   }
 
-  return { fallback, world, totalJsCss, homepageMedia };
+  return { fallback, world, worldWasm, totalJsCss, homepageMedia };
 }
 
 export function budgetRows(sizes, limits = LIMITS) {
   return [
     ['fallback-first (homepage html + core JS/CSS)', sizes.fallback, limits.fallback, '<'],
     ['world chunk (three + world adapters)', sizes.world, limits.world, '<='],
+    ['world wasm (rapier)', sizes.worldWasm, limits.worldWasm, '<='],
     ['total JS+CSS', sizes.totalJsCss, limits.totalJsCss, '<='],
     ['homepage images+fonts', sizes.homepageMedia, limits.homepageMedia, '<='],
   ];
