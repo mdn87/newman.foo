@@ -62,7 +62,7 @@ function installFrame() {
 
 function makeScene(): WorldScene {
   return { frame: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
-    setObstacles: () => {},
+    setObstacles: vi.fn(),
     readout: vi.fn(() => ({ x: 0, y: 0, pos: { x: 0, y: 0, z: 0 }, visible: false })),
     renderer: { domElement: { clientWidth: 800, clientHeight: 600 } } } as unknown as WorldScene;
 }
@@ -87,6 +87,11 @@ describe('wireWorld (free-fly)', () => {
     cbs.get(1)!(performance.now() + 16); // first frame
     expect(scene.frame).toHaveBeenCalledTimes(1);
     expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ position: expect.any(Object) }), expect.any(Array));
+    // field wiring: setObstacles received a non-empty obstacle array
+    expect((scene.setObstacles as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+    expect((scene.setObstacles as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toEqual(expect.arrayContaining([expect.any(Object)]));
+    // DartPhysics.create received the field as its second argument (non-empty array)
+    expect(dartMocks.DartPhysics.create).toHaveBeenCalledWith(expect.anything(), expect.arrayContaining([expect.any(Object)]));
     cleanup();
   });
 
