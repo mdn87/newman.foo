@@ -15,6 +15,7 @@ const dartMocks = vi.hoisted(() => {
   const instances: Array<{
     step: ReturnType<typeof vi.fn>;
     state: ReturnType<typeof vi.fn>;
+    obstacleStates: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
   }> = [];
   const DartPhysics = {
@@ -28,6 +29,7 @@ const dartMocks = vi.hoisted(() => {
           yaw: 0, pitch: 0, bank: 0, throttle: 0,
           speed: 0, surge: 0, strafe: 0,
         })),
+        obstacleStates: vi.fn(() => []),
         dispose: vi.fn(),
       };
       instances.push(inst);
@@ -60,6 +62,7 @@ function installFrame() {
 
 function makeScene(): WorldScene {
   return { frame: vi.fn(), resize: vi.fn(), dispose: vi.fn(),
+    setObstacles: () => {},
     readout: vi.fn(() => ({ x: 0, y: 0, pos: { x: 0, y: 0, z: 0 }, visible: false })),
     renderer: { domElement: { clientWidth: 800, clientHeight: 600 } } } as unknown as WorldScene;
 }
@@ -83,7 +86,7 @@ describe('wireWorld (free-fly)', () => {
     const cleanup = await wireWorld(scene, { reducedMotion: false });
     cbs.get(1)!(performance.now() + 16); // first frame
     expect(scene.frame).toHaveBeenCalledTimes(1);
-    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ position: expect.any(Object) }));
+    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ position: expect.any(Object) }), expect.any(Array));
     cleanup();
   });
 

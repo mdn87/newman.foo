@@ -129,6 +129,30 @@ test('rapier physics: holding W accelerates the dart, releasing glides it back t
   }).toPass({ timeout: 8000 });
 });
 
+test('collision: flying into the dot field perturbs the dart (it does not sail through cleanly)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  const speed = page.locator('.flight-speed');
+  await expect(speed).toHaveText('0 u/s');
+
+  await page.locator('canvas#scene').click();
+  await page.keyboard.down('w');
+
+  // Sample speed for ~4s. Open space => ramp up then hold. A collision in the
+  // central field => a visible drop from a prior peak. Assert a post-peak dip.
+  let peak = 0, maxDrop = 0;
+  for (let i = 0; i < 20; i++) {
+    await page.waitForTimeout(200);
+    const v = parseInt((await speed.textContent())?.replace(/[^\d-]/g, '') ?? '0', 10);
+    peak = Math.max(peak, v);
+    maxDrop = Math.max(maxDrop, peak - v);
+  }
+  await page.keyboard.up('w');
+  expect(peak).toBeGreaterThan(5);     // it did accelerate
+  expect(maxDrop).toBeGreaterThan(8);  // ...and a collision knocked the speed down
+});
+
 test.describe('mobile / coarse pointer', () => {
   const { defaultBrowserType: _unused, ...iphone13 } = devices['iPhone 13'];
   test.use(iphone13);

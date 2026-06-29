@@ -1,5 +1,6 @@
 // src/world/wire.ts
 import { DartPhysics } from '../physics/dart';
+import { makeObstacleField } from '../core/field';
 import { FlightHud } from '../hud/flight-hud';
 import type { WorldScene } from './scene';
 
@@ -7,7 +8,9 @@ const MAX_DT = 0.05;
 const STEER_RATE = 0.009; // drag-steer: rad/s of turn per px of drag offset from the press point
 
 export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): Promise<() => void> {
-  const dart = await DartPhysics.create({ bound: 720, boundPush: 220 });
+  const field = makeObstacleField(1981, { extent: 180, spacing: 90 });
+  const dart = await DartPhysics.create({ bound: 720, boundPush: 220 }, field);
+  scene.setObstacles(field);
   const hud = new FlightHud(document.getElementById('hud-root')!);
 
   // Drag-to-fly: while the left button is held, the cursor's offset from where it
@@ -60,7 +63,7 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
     const pitchDelta = dragging ? -dragY * STEER_RATE * dt : 0;
     dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost() });
     const s = dart.state();
-    scene.frame(dt, s);
+    scene.frame(dt, s, dart.obstacleStates());
     hud.setSpeed(s.speed);
     hud.setReadout(scene.readout());
     frameId = requestAnimationFrame(loop);
