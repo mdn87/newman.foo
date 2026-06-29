@@ -9,6 +9,8 @@ import {
   DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce,
   type ControlOpts,
 } from '../core/control';
+import type { ObstacleSpec } from '../core/field';
+import { Obstacles } from './obstacles';
 
 type Rapier = typeof import('@dimforge/rapier3d');
 type World = InstanceType<Rapier['World']>;
@@ -24,25 +26,35 @@ const FIXED = 1 / 120;
  * collider shapes in v1.
  */
 export class DartPhysics {
-  static async create(opts: Partial<ControlOpts> = {}): Promise<DartPhysics> {
+  static async create(opts: Partial<ControlOpts> = {}, obstacleSpecs: ObstacleSpec[] = []): Promise<DartPhysics> {
     const RAPIER = await import('@dimforge/rapier3d');
-    return new DartPhysics(RAPIER, { ...DEFAULT_CONTROL, ...opts });
+    return new DartPhysics(RAPIER, { ...DEFAULT_CONTROL, ...opts }, obstacleSpecs);
   }
 
   private readonly world: World;
   private readonly body: RigidBody;
+  private readonly obstacles: Obstacles | null = null;
   private yaw = 0; private pitch = 0; private bank = 0; private throttle = 0;
   private surge = 0; private strafeIntent = 0; private acc = 0;
 
-  private constructor(RAPIER: Rapier, private readonly o: ControlOpts) {
+  private constructor(RAPIER: Rapier, private readonly o: ControlOpts, obstacleSpecs: ObstacleSpec[]) {
     this.world = new RAPIER.World({ x: 0, y: 0, z: 0 }); // deep space: no gravity
     this.world.timestep = FIXED;
     const desc = RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(0, 0, 0)
       .setLinearDamping(this.o.linearDamping)
       .lockRotations()        // Rapier integrates translation only
-      .setAdditionalMass(1);  // explicit mass: a collider-less dynamic body is otherwise mass 0
+      .setAdditionalMass(1);  // explicit mass; collider density 0 keeps it exactly 1
     this.body = this.world.createRigidBody(desc);
+    // Ball collider so the dart physically collides with obstacles; density 0 so it
+    // adds no mass (mass stays the v1 reference of 1, preserving thrust feel).
+    this.world.createCollider(
+      RAPIER.ColliderDesc.ball(1.6).setRestitution(0.6).setDensity(0),
+      this.body,
+    );
+    if (obstacleSpecs.length > 0) {
+      this.obstacles = new Obstacles(RAPIER, this.world, obstacleSpecs);
+    }
   }
 
   step(dt: number, input: FlightInput): void {
@@ -89,6 +101,10 @@ export class DartPhysics {
       yaw: this.yaw, pitch: this.pitch, bank: this.bank, throttle: this.throttle,
       speed: Math.hypot(v.x, v.y, v.z), surge: this.surge, strafe: this.strafeIntent,
     };
+  }
+
+  obstacleStates(): { pos: import('../core/types').Vec3 }[] {
+    return this.obstacles ? this.obstacles.states() : [];
   }
 
   dispose(): void {
