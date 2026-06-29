@@ -14,8 +14,9 @@ Targets:
 
 ## threejs-gameplay-systems
 
-Use for loop structure, input interpretation, flight feel, camera behavior,
-collision-like interactions, and clear system boundaries.
+Use for loop structure, system boundaries, collision-like interactions, and
+feature framing around flight. For low-level input interpretation, integrator
+tuning, and camera feel, start with the gamedev pack's dedicated disciplines.
 
 Targets:
 

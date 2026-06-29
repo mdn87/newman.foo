@@ -62,6 +62,18 @@ Targets:
 - `src/hud/flight-hud.ts`
 - `tests/flight.test.ts`
 
+### physics-tuning
+
+Use for existing free-flight integrator tuning: timestep behavior, acceleration,
+drag, velocity caps, damping, bounds, stability, and collision-like response
+without adding a physics engine.
+
+Targets:
+
+- `src/core/flight.ts`
+- `tests/flight.test.ts`
+- `src/world/wire.ts` when dt clamping or input cadence affects simulation
+
 ### input-systems
 
 Use for keyboard, pointer, right-click boost, mobile pointer behavior, future
@@ -84,7 +96,9 @@ Targets:
 - `src/hud/flight-hud.ts`
 - `src/hud/hud.css`
 - `src/fallback/render.ts`
-- `e2e/smoke.spec.ts`
+- `tests/flight-hud.test.ts`
+- `tests/hud.test.ts`
+- future browser smoke tests when added
 
 ### performance-optimization
 
@@ -98,4 +112,28 @@ Targets:
 - `public/artwork/`
 - `scripts/check-budgets.mjs`
 - `tests/budgets.test.ts`
-- `e2e/smoke.spec.ts`
+- future browser smoke tests when added
+
+### procedural-gen
+
+Use for deterministic galaxy, field, route, or future generated-space content.
+
+Targets:
+
+- `src/core/galaxy.ts`
+- `src/core/grid.ts`
+- `src/core/parallax.ts`
+- `tests/galaxy.test.ts`
+- `tests/grid.test.ts`
+- `tests/parallax.test.ts`
+
+### shader-programming
+
+Use for point sprites, alpha/fade behavior, custom material uniforms, and
+GPU-cost-aware visual effects.
+
+Targets:
+
+- `src/world/scene.ts`
+- `tests/render.test.ts`
+- `scripts/check-budgets.mjs`

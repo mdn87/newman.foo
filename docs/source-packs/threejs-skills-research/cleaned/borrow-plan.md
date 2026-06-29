@@ -18,7 +18,8 @@
 - recommendation: Treat as the stronger future Lugos import candidate. Do not
   run scripts or copy scaffold material without a separate L1 review. Use the
   dedicated local pack at `docs/source-packs/threejs-game-skills/` for current
-  project guidance.
+  broad game-production guidance, but route low-level physics/controls tasks to
+  the gamedev pack first.
 
 ## Borrow Unit 3: Preserve Existing Broad Router
 
@@ -43,4 +44,6 @@
 
 Proceed with this docs-only research pack. For current `newman.foo` work, use
 CloudAI-X for compact API-topic guidance and prefer `threejs-game-skills` when
-the task needs a more complete game-production workflow.
+the task needs a more complete game-production workflow. If the task says
+"better physics," first decide whether it means tuning the existing flight feel
+or adding a real physics engine.

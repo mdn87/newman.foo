@@ -50,8 +50,9 @@ Targets:
 
 ### threejs-gameplay-systems
 
-Use for playable loop, controls, camera feel, entity/system boundaries, and
-first-playable quality.
+Use for playable loop, entity/system boundaries, and first-playable quality.
+For low-level controls, camera feel, and flight tuning, use the gamedev pack's
+dedicated disciplines first.
 
 Targets:
 
@@ -68,7 +69,8 @@ Targets:
 
 - `src/hud/flight-hud.ts`
 - `src/hud/hud.css`
-- `e2e/smoke.spec.ts`
+- `tests/flight-hud.test.ts`
+- future browser smoke tests when added
 
 ### threejs-debug-profiler / threejs-qa-release
 
@@ -80,11 +82,11 @@ Targets:
 - `scripts/check-budgets.mjs`
 - `tests/budgets.test.ts`
 - `playwright.config.ts`
-- `e2e/smoke.spec.ts`
+- future browser smoke tests when added
 
 ## Existing Broad Router
 
 The already-added `gamedev-agent-skills` project-local pack should remain the
-first stop for broad game-development routing. Use this pack when the decision
-is specifically Three.js-source quality or a Three.js-specific implementation
-question.
+first stop for broad game-development routing and low-level physics/controls
+feel. Use this pack when the decision is specifically Three.js-source quality
+or a Three.js-specific implementation question.

@@ -43,6 +43,9 @@
 ## Notes
 
 This source is strong enough to be the preferred project-local game-production
-pack. The cautious part is not the guidance itself; it is the surrounding
-automation surface. Keep the current integration as distilled docs until a
-specific task justifies deeper review.
+pack for broad playable-loop work. It is not the first stop for low-level
+physics/controls tuning; route those tasks through the gamedev pack's
+`physics-tuning`, `input-systems`, `camera-systems`, and `game-feel`
+disciplines first. The cautious part is not the guidance itself; it is the
+surrounding automation surface. Keep the current integration as distilled docs
+until a specific task justifies deeper review.

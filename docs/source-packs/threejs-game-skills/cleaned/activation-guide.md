@@ -8,7 +8,8 @@ browser game, not just when it needs an API lookup.
 ## Use When
 
 - planning a playable slice or game-like feature
-- changing flight controls, camera behavior, or player feedback
+- planning the overall loop around flight controls, camera behavior, or player
+  feedback
 - improving rendering polish, visual hierarchy, scene clarity, or motion feel
 - changing HUD layout, responsive fit, mode switching, or mobile input
 - debugging frame pacing, blank canvas, resize behavior, or interaction issues
@@ -20,7 +21,8 @@ browser game, not just when it needs an API lookup.
 Start with the smallest relevant module:
 
 - feature scope, phase planning, quality bar: `threejs-game-director`
-- loop, controls, collision, camera rig, playable systems: `threejs-gameplay-systems`
+- loop, collision-like interactions, camera rig, playable systems:
+  `threejs-gameplay-systems`
 - visual polish, procedural detail, lighting/material quality: `threejs-aaa-graphics-builder`
 - HUD, overlays, responsive controls, mobile readability: `threejs-game-ui-designer`
 - performance, mobile input, scene debugging, canvas checks: `threejs-debug-profiler`
@@ -33,6 +35,11 @@ For broad game-development routing, start with
 `docs/source-packs/gamedev-agent-skills/cleaned/activation-guide.md`.
 For narrow API-topic comparison, use
 `docs/source-packs/threejs-skills-research/cleaned/activation-guide.md`.
+
+For low-level physics/controls feel, do not start here. Use the gamedev pack's
+`physics-tuning`, `input-systems`, `camera-systems`, and `game-feel` lanes
+first. If the task needs true rigid-body dynamics or colliders, use the
+physics-engine research pack instead.
 
 ## Local Guardrails
 

@@ -17,7 +17,7 @@ scripts, or import scaffold code.
 ## Source
 
 - repository: `majidmanzarpour/threejs-game-skills`
-- role: preferred Three.js game-production source for `newman.foo`
+- role: preferred broad Three.js game-production source for `newman.foo`
 - current project role: docs-only, project-local guidance
 - future role: canonical Lugos source-pack candidate after L1 import review
 
@@ -49,9 +49,14 @@ distillations, routing notes, and project-specific adoption guidance.
 - `gamedev-agent-skills`: remains the broad game-development router.
 - `threejs-skills-research`: remains the comparison record and keeps
   CloudAI-X as a narrow API/reference candidate.
-- `threejs-game-skills`: becomes the preferred local pack when the task is
-  about playable loop quality, game feel, HUD, performance evidence, mobile
-  checks, release confidence, or production-grade Three.js game workflow.
+- `threejs-game-skills`: becomes the preferred broad game-production pack when the task is
+  about playable-loop quality, system framing, HUD, performance evidence,
+  mobile checks, release confidence, or production-grade Three.js game workflow.
+  It is not the first stop for low-level flight physics, controls, or camera
+  feel; those route to the gamedev pack's `physics-tuning`, `input-systems`,
+  `camera-systems`, and `game-feel` lanes.
+- `physics-engine-research`: covers the separate case where "better physics"
+  means real rigid bodies, colliders, constraints, spatial queries, or CCD.
 - Official Three.js docs remain the authority for exact API behavior.
 
 ## Guardrails

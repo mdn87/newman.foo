@@ -20,7 +20,8 @@ In scope:
 - Upstream provenance pinned to the current repository URL and HEAD commit.
 - Curated mapping for the skills that fit this Vite + three.js free-fly galaxy:
   `router`, `threejs-scene-setup`, `camera-systems`, `game-feel`,
-  `input-systems`, `game-ui-ux`, and `performance-optimization`.
+  `physics-tuning`, `input-systems`, `game-ui-ux`,
+  `performance-optimization`, `procedural-gen`, and `shader-programming`.
 - A local activation guide for future agents working in this repo.
 - Later-Lugos-import metadata, but no live Bran/AETA import yet.
 
@@ -63,7 +64,13 @@ the later Lugos import can be reviewed without reconstructing the conversation.
 
 For now, the pack is active only by convention inside this repository. Future
 agents should read `cleaned/activation-guide.md` when they are asked to improve
-game-like behavior, camera feel, controls, HUD, or performance in `newman.foo`.
+game-like behavior, flight physics feel, camera feel, controls, HUD, procedural
+content, shaders, or performance in `newman.foo`.
+
+After review on 2026-06-29, this pack is explicitly the first stop for
+low-level physics/controls feel because its disciplines decompose that task
+better than the broader Three.js game-production pack. Real rigid-body or
+collision work remains a separate physics-engine research lane.
 
 The pack does not auto-load. It does not modify Codex, Bran, or global skills.
 If a future task needs direct skill loading, that should be a separate change

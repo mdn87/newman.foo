@@ -25,8 +25,10 @@ Use the robust alternative framing when the task is product/game-level:
 - profiling and mobile checks: `threejs-debug-profiler`
 - release/playtest evidence: `threejs-qa-release`
 
-For those product/game-level tasks, prefer the dedicated local pack at
-`docs/source-packs/threejs-game-skills/cleaned/activation-guide.md`.
+For broad product/game-level tasks, prefer the dedicated local pack at
+`docs/source-packs/threejs-game-skills/cleaned/activation-guide.md`. For
+physics/controls feel, prefer the gamedev pack's dedicated `physics-tuning`,
+`input-systems`, `camera-systems`, and `game-feel` lanes.
 
 ## Guardrails
 
@@ -37,4 +39,4 @@ For those product/game-level tasks, prefer the dedicated local pack at
   current behavior matters.
 - Keep project changes inside existing repo boundaries: pure logic in
   `src/core/`, renderer/adapters in `src/world/`, HUD in `src/hud/`, tests in
-  `tests/`/`e2e/`.
+  `tests/`, and future browser smoke tests when added.

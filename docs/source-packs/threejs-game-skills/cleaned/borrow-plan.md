@@ -6,8 +6,9 @@
 - target: feature planning, playable loop, controls, camera feel
 - change class: project-local guidance
 - blast radius: docs now; core/world behavior if applied later
-- recommendation: Use this as the preferred local framing when a task is about
-  playability or game-like feature quality.
+- recommendation: Use this for higher-level playability and system framing. For
+  low-level flight physics, controls, and camera feel, start with the gamedev
+  pack's finer-grained disciplines.
 
 ## Borrow Unit 2: Visual And UI Quality
 

@@ -18,14 +18,16 @@
 - recommendation: Keep scene/camera/renderer/loop/resize fixes in the world
   adapter. Verify with render/world tests and browser screenshots when visual.
 
-## Borrow Unit 3: Camera And Feel
+## Borrow Unit 3: Physics, Camera, And Feel
 
-- source skills: `camera-systems`, `game-feel`
+- source skills: `physics-tuning`, `camera-systems`, `game-feel`
 - target: `src/core/flight.ts`, `src/world/scene.ts`
 - change class: future implementation guidance
 - blast radius: flight and visual response
-- recommendation: Preserve frame-rate-independent simulation. Add feel through
-  tuned feedback and camera offsets rather than mutating core state for visuals.
+- recommendation: Use this pack first for better-feeling flight. Preserve
+  frame-rate-independent simulation, tune integrator constants deliberately,
+  keep camera feel in `src/world/scene.ts`, and add visual feedback without
+  mutating core state for presentation only.
 
 ## Borrow Unit 4: Input And HUD
 
@@ -45,8 +47,19 @@
 - recommendation: Profile or budget-check before increasing particle counts,
   shader complexity, media assets, or world imports.
 
+## Borrow Unit 6: Procedural And Shader Discipline
+
+- source skills: `procedural-gen`, `shader-programming`
+- target: `src/core/galaxy.ts`, `src/world/scene.ts`, render/budget tests
+- change class: future implementation guidance
+- blast radius: world visuals, GPU cost, and deterministic generated content
+- recommendation: Keep generated content deterministic and testable. Verify
+  shader/material changes with render tests, build, and budgets.
+
 ## Staged Recommendation
 
 Proceed with this project-local pack as the active guidance surface for
-`newman.foo`. Defer global skill installation and Lugos/Bran import until the
-pack proves useful in one or two project tasks.
+physics/controls feel in `newman.foo`. Use `threejs-game-skills` for
+higher-level playable-loop framing, not as the first stop for low-level
+integrator/input/camera tuning. Defer global skill installation and Lugos/Bran
+import until the pack proves useful in one or two project tasks.

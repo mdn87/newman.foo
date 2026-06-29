@@ -6,8 +6,10 @@ Read this guide when a task touches game-like behavior in the site:
 
 - free-flight controls or input mapping
 - chase camera, steering, framing, or screen motion
-- thrust, inertia, responsiveness, feedback, or polish
+- thrust, inertia, damping, velocity caps, soft bounds, responsiveness,
+  feedback, or polish
 - flight HUD, list/world mode switching, mobile layout, or accessibility
+- procedural galaxy/layout generation or shader/material behavior
 - three.js scene/render loop/material/resize issues
 - frame, asset, or bundle budgets
 
@@ -16,14 +18,38 @@ files into `.agents/skills/` unless a later task explicitly chooses that route.
 
 ## Local Routing
 
-Start with the router idea, then pick the minimal local guidance:
+Start with the router idea, then pick the minimal local guidance. This pack is
+kept because its disciplines are precise, not because it is the most popular
+upstream repository.
 
 - Scene/rendering issue: consult the `threejs-scene-setup` mapping.
 - Camera issue: consult `camera-systems`.
 - Controls issue: consult `input-systems`.
-- Feel/polish issue: consult `game-feel`.
+- Existing flight physics issue: consult `physics-tuning`, then `game-feel`.
+- Feel/polish issue: consult `game-feel`, then `camera-systems` if framing is
+  part of the feel.
 - HUD or mode UX issue: consult `game-ui-ux`.
 - Slow, heavy, or budget-sensitive issue: consult `performance-optimization`.
+- Procedural galaxy/content issue: consult `procedural-gen`.
+- Shader or GPU material issue: consult `shader-programming`, then official
+  Three.js docs for exact API behavior.
+
+For physics/controls tasks, route in this order:
+
+1. `physics-tuning` for timestep, damping, caps, boundaries, and stability in
+   `src/core/flight.ts`.
+2. `input-systems` for keyboard, pointer, touch, and future gamepad mapping in
+   `src/world/wire.ts` and `src/core/intent.ts`.
+3. `camera-systems` for chase camera framing in `src/world/scene.ts`.
+4. `game-feel` for feedback, thrust response, screen motion, and reversible
+   polish.
+5. `threejs-game-skills` only when the work needs higher-level playable-loop or
+   system-framing guidance.
+
+If "better physics" means real rigid bodies, colliders, constraints, spatial
+queries, or continuous collision detection, do not stretch this pack to cover
+it. Use `docs/source-packs/physics-engine-research/cleaned/activation-guide.md`
+as the deliberate fourth lane.
 
 When several apply, order the work this way:
 

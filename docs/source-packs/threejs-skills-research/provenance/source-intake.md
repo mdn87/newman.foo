@@ -36,15 +36,17 @@ scripts, and scaffold material.
 
 - Direct evidence: CloudAI-X README says the pack covers Three.js API details,
   best practices, common patterns, and 10 topic skills.
-- Direct evidence: CloudAI-X GitHub API metadata reported 2482 stars, 285
-  forks, and last push `2026-01-19T21:15:32Z`; SPDX license metadata was null.
+- Direct evidence: CloudAI-X GitHub API metadata reported 2483 stars, 286
+  forks, 5 open issues, and last push `2026-01-19T21:15:32Z`; SPDX license
+  metadata was null.
 - Direct evidence: the CloudAI-X README claims MIT License, but the GitHub API
   did not report a license file.
 - Direct evidence: the CloudAI-X README install snippet points at
   `pinkforest/threejs-playground`, not `CloudAI-X/threejs-skills`, so future
   import should re-check repository provenance before copying files.
 - Direct evidence: `threejs-game-skills` GitHub API metadata reported MIT
-  license, 558 stars, 61 forks, and last push `2026-06-16T11:18:44Z`.
+  license, 565 stars, 62 forks, zero open issues, and last push
+  `2026-06-16T11:18:44Z`.
 - Direct evidence: `threejs-game-skills` tree includes 9 `SKILL.md` files and
   48 Markdown files, including references, checklists, scripts, and a scaffold.
 - Inference: `threejs-game-skills` is more robust for `newman.foo` because this

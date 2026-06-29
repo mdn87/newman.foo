@@ -24,6 +24,8 @@ Alternatives reviewed:
 - `dgreenheck/webgpu-claude-skill`
 - `EnzeD/r3f-skills`
 - Official Three.js docs as the authority fallback for API details
+- Separate physics-engine research for Rapier/cannon-es when the task requires
+  real dynamics or collision.
 
 ## Recommendation
 
@@ -33,15 +35,16 @@ an SPDX license, it has no tags/releases, and it is more API-topic oriented than
 game-production oriented.
 
 Use `majidmanzarpour/threejs-game-skills` as the stronger alternative to track
-for future Lugos import. It is MIT-licensed, recently updated, and contains
-references, checklists, helper scripts, scaffold material, gameplay systems,
-UI, QA/release, and profiling guidance. Those traits fit `newman.foo` better
-than a pure Three.js API pack.
+for future broad game-production Lugos import. It is MIT-licensed, recently
+updated, and contains references, checklists, helper scripts, scaffold material,
+gameplay systems, UI, QA/release, and profiling guidance. Those traits fit
+`newman.foo` better than a pure Three.js API pack.
 
 Keep the already-added `gamedev-skills` pack as the broad router/composition
-layer. This new pack answers the narrower question: which Three.js-specific
-source should be preferred when the task is about browser game production or
-low-level Three.js API details?
+layer and the sharper source for low-level physics/controls feel. This new pack
+answers the narrower question: which Three.js-specific source should be
+preferred when the task is about browser game production or low-level Three.js
+API details?
 
 ## Pack Shape
 

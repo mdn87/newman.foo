@@ -1,0 +1,66 @@
+{
+  "pack_id": "physics-engine-research-newman-foo-candidate",
+  "schema": "project-local-source-pack-candidate.v1",
+  "status": "candidate",
+  "active_scope": "project-local",
+  "target_project": {
+    "name": "newman.foo",
+    "repo": "mdn87/newman.foo",
+    "local_name": "notanastronaut",
+    "runtime": "Vite + TypeScript + three.js"
+  },
+  "decision_lane": {
+    "name": "real-physics-engine",
+    "use_when": "The task needs rigid bodies, colliders, constraints, spatial queries, or continuous collision detection rather than tuning the existing flight integrator.",
+    "not_for": "Thrust feel, damping, pointer controls, chase camera smoothing, HUD feedback, or other feel-only changes."
+  },
+  "primary_candidate": {
+    "name": "rapier.js",
+    "repo": "dimforge/rapier.js",
+    "url": "https://github.com/dimforge/rapier.js",
+    "docs": "https://rapier.rs/docs/user_guides/javascript/getting_started_js/",
+    "head_commit": "dcae0a6a21d21d2bf6c4e4cc4730c4d4a146fddb",
+    "captured_at": "2026-06-29",
+    "license": "Apache-2.0",
+    "stars_at_capture": 691,
+    "forks_at_capture": 90,
+    "open_issues_at_capture": 120,
+    "last_push_at_capture": "2026-06-20T08:54:34Z",
+    "role": "Preferred first research candidate for modern 3D rigid bodies/colliders in this TypeScript + Three.js project."
+  },
+  "secondary_candidate": {
+    "name": "cannon-es",
+    "repo": "pmndrs/cannon-es",
+    "url": "https://github.com/pmndrs/cannon-es",
+    "docs": "https://pmndrs.github.io/cannon-es/",
+    "head_commit": "dd971c4a604acdbb211955382e7a80de1f31edfb",
+    "captured_at": "2026-06-29",
+    "license": "MIT",
+    "stars_at_capture": 2033,
+    "forks_at_capture": 152,
+    "open_issues_at_capture": 57,
+    "last_push_at_capture": "2024-01-06T04:10:33Z",
+    "role": "Lighter pure TypeScript/JavaScript option with high adoption signal but older repository push activity."
+  },
+  "relationships": {
+    "feel_tuning": "docs/source-packs/gamedev-agent-skills/manifest.json",
+    "game_production": "docs/source-packs/threejs-game-skills/manifest.json",
+    "threejs_api": "https://threejs.org/docs/"
+  },
+  "local_activation": {
+    "entrypoint": "cleaned/activation-guide.md",
+    "autoload": false,
+    "global_install": false
+  },
+  "later_lugos_import": {
+    "intended_lane": "aeta-to-bran-source-pack",
+    "import_ready": false,
+    "reason": "Research lane only; no engine dependency is installed and no simulation architecture has been selected.",
+    "required_before_import": [
+      "Decide whether real dynamics are needed for newman.foo.",
+      "Compare bundle/runtime cost against the existing budget gates.",
+      "Prototype one minimal adapter behind src/core or a new physics boundary.",
+      "Choose Rapier, cannon-es, or another engine with explicit acceptance criteria."
+    ]
+  }
+}
