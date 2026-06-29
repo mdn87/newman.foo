@@ -1,6 +1,6 @@
 // src/world/scene.ts
 import * as THREE from 'three';
-import type { FlightState } from '../core/flight';
+import type { FlightState } from '../core/flight-types';
 import type { Vec3 } from '../core/types';
 import { makeSpiralGalaxy } from '../core/galaxy';
 import { makeGridLines } from '../core/grid';

@@ -1,28 +1,6 @@
 import type { Vec3 } from './types';
-
-/**
- * Game-style 6DOF-ish input. Facing (yaw/pitch) is DECOUPLED from movement:
- * the mouse aims `yawDelta`/`pitchDelta` (radians applied this tick), while
- * WASD/arrows/right-click drive `forward` (W/S) and `strafe` (A/D) thrust
- * relative to the facing — so there's a real left, right, back, not just forward.
- */
-export interface FlightInput {
-  yawDelta: number;
-  pitchDelta: number;
-  forward: number; // -1..1
-  strafe: number;  // -1..1
-}
-
-export interface FlightState {
-  position: Vec3; velocity: Vec3; heading: Vec3;
-  yaw: number; pitch: number; bank: number; throttle: number; speed: number;
-  surge: number; strafe: number; // last movement intents (-1..1), for thruster visuals
-}
-
-export interface FlightOpts {
-  accel?: number; maxSpeed?: number; drag?: number; throttleEase?: number;
-  bankMax?: number; bankEase?: number; bound?: number; boundPush?: number; pitchLimit?: number;
-}
+import type { FlightInput, FlightState, FlightOpts } from './flight-types';
+export type { FlightInput, FlightState, FlightOpts };
 
 const clamp = (v: number, a: number, b: number) => (v < a ? a : v > b ? b : v);
 const headingFrom = (yaw: number, pitch: number): Vec3 => ({
