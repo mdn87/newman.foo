@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import type { FlightState } from '../core/flight-types';
 import type { Vec3 } from '../core/types';
+import type { ObstacleSpec } from '../core/field';
 import { makeSpiralGalaxy } from '../core/galaxy';
 import { makeGridLines } from '../core/grid';
 import { makeVolumeBodies } from '../core/parallax';
@@ -13,7 +14,7 @@ const THRUSTER_ASPECT = 80 / 120;
 const ARROW_LEN = 3.6;
 // Chase cam: CAM_TURN is how fast the trail eases toward the facing (low = the
 // camera barely swings when you look); CAM_LOOK_LAG keeps the avatar centered.
-const CAM_BACK = 11, CAM_UP = 3.4, CAM_LAG = 5, CAM_LOOK_LAG = 12, CAM_TURN = 1.5;
+const CAM_BACK = 11, CAM_UP = 3.4, CAM_LAG = 5, CAM_LOOK_LAG = 12, CAM_TURN = 5;
 const FORWARD = new THREE.Vector3(0, 0, 1);
 const GALAXY_SPIN = 0.015; // rad/s, top-down (about y)
 const EXTENT = 700;        // vast, explorable galaxy — matches the flight soft-bound
@@ -90,6 +91,8 @@ export class WorldScene {
   private readonly squareMat: THREE.ShaderMaterial;
   private readonly camPos = new THREE.Vector3(0, CAM_UP, -CAM_BACK);
   private readonly lookAt = new THREE.Vector3(0, 0, 0);
+  private obstacles: THREE.Points | null = null;
+  private obstaclePos: Float32Array | null = null;
 
   constructor(canvas: HTMLCanvasElement, opts: { seed?: number } = {}) {
     const seed = opts.seed ?? 1981;
@@ -156,6 +159,27 @@ export class WorldScene {
     this.resize();
   }
 
+  /** Build the dynamic-obstacle dot cloud. Positions update each frame; size and
+   *  color (denser = darker) are fixed from the spec. */
+  setObstacles(specs: ObstacleSpec[]): void {
+    const n = specs.length;
+    if (n === 0) return;
+    const pos = new Float32Array(n * 3), size = new Float32Array(n), alpha = new Float32Array(n), color = new Float32Array(n * 3);
+    specs.forEach((s, i) => {
+      pos[i * 3] = s.pos.x; pos[i * 3 + 1] = s.pos.y; pos[i * 3 + 2] = s.pos.z;
+      size[i] = s.radius;
+      alpha[i] = 0.9;
+      color[i * 3] = s.color.r; color[i * 3 + 1] = s.color.g; color[i * 3 + 2] = s.color.b;
+    });
+    const geom = new THREE.BufferGeometry();
+    setAttrs(geom, pos, size, alpha, color);
+    const mat = pointsMaterial(false);
+    mat.uniforms.uFade!.value = 0; // obstacles never distance-fade (you must see them to dodge)
+    this.obstacles = new THREE.Points(geom, mat);
+    this.scene.add(this.obstacles);
+    this.obstaclePos = pos;
+  }
+
   resize(): void {
     const w = this.renderer.domElement.clientWidth || innerWidth;
     const h = this.renderer.domElement.clientHeight || innerHeight;
@@ -164,7 +188,7 @@ export class WorldScene {
     this.camera.updateProjectionMatrix();
   }
 
-  frame(dt: number, flight: FlightState): void {
+  frame(dt: number, flight: FlightState, obstaclePositions?: { pos: Vec3 }[]): void {
     const pos = v(flight.position);
     const head = v(flight.heading).normalize();
 
@@ -214,6 +238,16 @@ export class WorldScene {
     this.galaxy.rotation.y += dt * GALAXY_SPIN;
     this.gridMat.uniforms.uAvatar!.value.copy(pos);
     this.squareMat.uniforms.uAvatar!.value.copy(pos);
+
+    // Obstacles move when hit — stream live positions into the cloud.
+    if (this.obstacles && this.obstaclePos && obstaclePositions) {
+      const buf = this.obstaclePos;
+      for (let i = 0; i < obstaclePositions.length; i++) {
+        const p = obstaclePositions[i]!.pos;
+        buf[i * 3] = p.x; buf[i * 3 + 1] = p.y; buf[i * 3 + 2] = p.z;
+      }
+      (this.obstacles.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    }
 
     this.renderer.render(this.scene, this.camera);
   }
