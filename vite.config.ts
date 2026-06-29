@@ -5,6 +5,7 @@ import topLevelAwait from 'vite-plugin-top-level-await';
 export default defineConfig({
   plugins: [wasm(), topLevelAwait()],
   optimizeDeps: {
+    // Prevent esbuild dep pre-bundling from mangling the wasm-ESM package in dev.
     exclude: ['@dimforge/rapier3d'],
   },
   build: {

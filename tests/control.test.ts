@@ -20,6 +20,12 @@ describe('control (pure mapping)', () => {
     expect(Math.abs(h.z)).toBeLessThan(1e-6);
   });
 
+  it('non-zero pitch sets y = sin(pitch) and heading remains unit-length', () => {
+    const h = headingFrom(0, Math.PI / 4);
+    expect(h.y).toBeCloseTo(Math.sin(Math.PI / 4), 6); // ≈0.7071
+    expect(Math.hypot(h.x, h.y, h.z)).toBeCloseTo(1, 6);
+  });
+
   it('right vector is screen-right (perp to heading, no y)', () => {
     const r = rightFrom(headingFrom(0, 0)); // heading +z -> right = -x
     expect(r.x).toBeCloseTo(-1, 6);

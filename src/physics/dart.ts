@@ -1,6 +1,8 @@
 // Side-effect import: forces rapier_wasm3d.js into the bundle so __wbg_set_wasm
 // is called and the Rapier WASM module is bound before any World is created.
 // Without this, Rollup optimises the re-export chain and skips the init glue.
+// @dimforge/rapier3d is exact-pinned (no ^) in package.json — a minor bump can
+// rename rapier_wasm3d.js (wasm-bindgen glue), silently breaking this import at runtime.
 import '@dimforge/rapier3d/rapier_wasm3d.js';
 import type { FlightInput, FlightState } from '../core/flight-types';
 import {
@@ -57,10 +59,11 @@ export class DartPhysics {
     this.bank += ((-this.strafeIntent * 0.5) - this.bank) * Math.min(1, 3 * dt);
 
     const cap = input.boost ? this.o.boostMaxSpeed : this.o.maxSpeed;
+    // thrustForce is loop-invariant: heading/right/input are fixed for this step
+    const thr = thrustForce(input, heading, right, this.o);
     this.acc += Math.min(dt, MAX_STEP);
     while (this.acc >= FIXED) {
       const t = this.body.translation();
-      const thr = thrustForce(input, heading, right, this.o);
       const bnd = boundaryForce(t, this.o.bound, this.o.boundPush);
       this.body.resetForces(false);
       this.body.addForce({
