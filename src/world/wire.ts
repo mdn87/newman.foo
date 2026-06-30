@@ -8,7 +8,7 @@ import type { WorldScene } from './scene';
 const MAX_DT = 0.05;
 
 export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): Promise<() => void> {
-  const field = makeObstacleField(1981, { extent: 180, spacing: 90 });
+  const field = makeObstacleField(1981);
   const dart = await DartPhysics.create({ bound: 720, boundPush: 220 }, field);
   scene.setObstacles(field);
   const hud = new FlightHud(document.getElementById('hud-root')!);

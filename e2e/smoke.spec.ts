@@ -155,6 +155,18 @@ test('collision: flying into the dot field perturbs the dart (it does not sail t
   expect(maxDrop).toBeGreaterThan(5);  // ...and a collision clearly perturbed the dart
 });
 
+test('barrel-roll dodge: a single D press side-steps the dart laterally', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  const readout = page.locator('.flight-readout');
+  await page.locator('canvas#scene').click();
+  await page.keyboard.press('d'); // one barrel roll + side-step (no forward thrust)
+  await page.waitForTimeout(900);
+  const x = parseInt((await readout.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
+  expect(Math.abs(x)).toBeGreaterThan(2); // dodged sideways from the lateral impulse
+});
+
 test.describe('mobile / coarse pointer', () => {
   const { defaultBrowserType: _unused, ...iphone13 } = devices['iPhone 13'];
   test.use(iphone13);
