@@ -1,4 +1,3 @@
-import type { Vec3 } from '../core/types';
 import type { ObstacleSpec } from '../core/field';
 
 type Rapier = typeof import('@dimforge/rapier3d');
@@ -17,8 +16,10 @@ const ANG_DAMP = 0.8;
  */
 export class Obstacles {
   private readonly bodies: RigidBody[] = [];
+  private readonly buf: Float32Array;
 
   constructor(RAPIER: Rapier, world: World, specs: ObstacleSpec[]) {
+    this.buf = new Float32Array(specs.length * 3);
     for (const s of specs) {
       const desc = RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(s.pos.x, s.pos.y, s.pos.z)
@@ -32,11 +33,12 @@ export class Obstacles {
     }
   }
 
-  /** Live positions, index-aligned to the specs passed in. */
-  states(): { pos: Vec3 }[] {
-    return this.bodies.map((b) => {
-      const t = b.translation();
-      return { pos: { x: t.x, y: t.y, z: t.z } };
-    });
+  /** Live positions as a flat xyz buffer (reused — no per-frame allocation). */
+  positions(): Float32Array {
+    for (let i = 0; i < this.bodies.length; i++) {
+      const t = this.bodies[i]!.translation();
+      this.buf[i * 3] = t.x; this.buf[i * 3 + 1] = t.y; this.buf[i * 3 + 2] = t.z;
+    }
+    return this.buf;
   }
 }

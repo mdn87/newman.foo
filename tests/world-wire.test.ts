@@ -15,7 +15,7 @@ const dartMocks = vi.hoisted(() => {
   const instances: Array<{
     step: ReturnType<typeof vi.fn>;
     state: ReturnType<typeof vi.fn>;
-    obstacleStates: ReturnType<typeof vi.fn>;
+    obstaclePositions: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
   }> = [];
   const DartPhysics = {
@@ -29,7 +29,7 @@ const dartMocks = vi.hoisted(() => {
           yaw: 0, pitch: 0, bank: 0, throttle: 0,
           speed: 0, surge: 0, strafe: 0,
         })),
-        obstacleStates: vi.fn(() => []),
+        obstaclePositions: vi.fn(() => new Float32Array(0)),
         dispose: vi.fn(),
       };
       instances.push(inst);
@@ -86,7 +86,7 @@ describe('wireWorld (free-fly)', () => {
     const cleanup = await wireWorld(scene, { reducedMotion: false });
     cbs.get(1)!(performance.now() + 16); // first frame
     expect(scene.frame).toHaveBeenCalledTimes(1);
-    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ position: expect.any(Object) }), expect.any(Array));
+    expect(scene.frame).toHaveBeenCalledWith(expect.any(Number), expect.objectContaining({ position: expect.any(Object) }), expect.any(Float32Array));
     // field wiring: setObstacles received a non-empty obstacle array
     expect((scene.setObstacles as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
     expect((scene.setObstacles as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toEqual(expect.arrayContaining([expect.any(Object)]));

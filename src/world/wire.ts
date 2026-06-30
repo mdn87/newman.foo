@@ -72,7 +72,7 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
     }
     dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost() });
     const s = dart.state();
-    scene.frame(dt, s, dart.obstacleStates());
+    scene.frame(dt, s, dart.obstaclePositions());
     hud.setSpeed(s.speed);
     hud.setReadout(scene.readout());
     frameId = requestAnimationFrame(loop);

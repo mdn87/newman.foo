@@ -18,6 +18,7 @@ type RigidBody = ReturnType<World['createRigidBody']>;
 
 const MAX_STEP = 0.05;
 const FIXED = 1 / 120;
+const NO_OBSTACLES = new Float32Array(0);
 
 /**
  * Rapier-owned dart. A single dynamic point mass (mass = 1, rotations locked):
@@ -103,8 +104,8 @@ export class DartPhysics {
     };
   }
 
-  obstacleStates(): { pos: import('../core/types').Vec3 }[] {
-    return this.obstacles ? this.obstacles.states() : [];
+  obstaclePositions(): Float32Array {
+    return this.obstacles ? this.obstacles.positions() : NO_OBSTACLES;
   }
 
   dispose(): void {

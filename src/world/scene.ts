@@ -189,7 +189,7 @@ export class WorldScene {
     this.camera.updateProjectionMatrix();
   }
 
-  frame(dt: number, flight: FlightState, obstaclePositions?: { pos: Vec3 }[]): void {
+  frame(dt: number, flight: FlightState, obstaclePositions?: Float32Array): void {
     const pos = v(flight.position);
     const head = v(flight.heading).normalize();
 
@@ -246,12 +246,8 @@ export class WorldScene {
 
     // Obstacles move when hit — stream live positions into the cloud.
     if (this.obstacles && this.obstaclePos && obstaclePositions) {
-      const buf = this.obstaclePos;
-      const count = Math.min(obstaclePositions.length, buf.length / 3);
-      for (let i = 0; i < count; i++) {
-        const p = obstaclePositions[i]!.pos;
-        buf[i * 3] = p.x; buf[i * 3 + 1] = p.y; buf[i * 3 + 2] = p.z;
-      }
+      const n = Math.min(obstaclePositions.length, this.obstaclePos.length);
+      this.obstaclePos.set(obstaclePositions.subarray(0, n)); // flat copy, no allocation; capped to the render buffer
       (this.obstacles.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
     }
 
