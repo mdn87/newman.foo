@@ -12,6 +12,8 @@ export interface FieldOpts {
   sizeMassLo?: number; sizeMassHi?: number;
   densMassLo?: number; densMassHi?: number;
   massClampLo?: number; massClampHi?: number;
+  clusterCount?: number; perClusterMin?: number; perClusterMax?: number; clusterRadius?: number;
+  greeterZ?: number; greeterRadius?: number; maxObstacles?: number;
 }
 
 // Low density -> light cyan; high density -> near-black. Denser = darker.
@@ -49,31 +51,58 @@ export function obstacleMass(radius: number, density: number, opts: FieldOpts = 
 }
 
 /**
- * Deterministic dynamic-obstacle field on the gridline lattice within a central
- * cube. Each obstacle gets a seeded radius + density; mass is computed by
- * obstacleMass (size AND density both drive it, clamped). The origin
- * (the dart's spawn point) is excluded so the dart is never embedded.
+ * Deterministic free-floating clumps filling the grid volume, plus a guaranteed
+ * "greeter" clump on the +z spawn path so obstacles are found immediately (and the
+ * collision e2e is deterministic). The spawn bubble is kept clear. Seeded; capped.
  */
 export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleSpec[] {
-  const extent = opts.extent ?? 180;
-  const spacing = opts.spacing ?? 90;
-  const spawnClear = opts.spawnClear ?? 0.5;
+  const extent = opts.extent ?? 630;
+  const spawnClear = opts.spawnClear ?? 40;
   const rMin = opts.minRadius ?? 2, rMax = opts.maxRadius ?? 9;
   const dMin = opts.minDensity ?? 0.2, dMax = opts.maxDensity ?? 15;
+  const clusterCount = opts.clusterCount ?? 210;
+  const perMin = opts.perClusterMin ?? 5, perMax = opts.perClusterMax ?? 9;
+  const clusterRadius = opts.clusterRadius ?? 55;
+  const greeterZ = opts.greeterZ ?? 130;
+  const greeterRadius = opts.greeterRadius ?? 70;
+  const maxObstacles = opts.maxObstacles ?? 2000;
 
-  const n = Math.floor(extent / spacing);
   const rnd = mulberry32(seed);
+  const gauss = () => { // Box–Muller (matches galaxy.ts)
+    let u = 0, v = 0;
+    while (u === 0) u = rnd();
+    while (v === 0) v = rnd();
+    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+  };
+  const clampAxis = (x: number) => Math.max(-extent, Math.min(extent, x));
 
   const out: ObstacleSpec[] = [];
-  for (let ix = -n; ix <= n; ix++)
-    for (let iy = -n; iy <= n; iy++)
-      for (let iz = -n; iz <= n; iz++) {
-        const pos = { x: ix * spacing, y: iy * spacing, z: iz * spacing };
-        if (Math.hypot(pos.x, pos.y, pos.z) <= spawnClear) continue; // skip spawn point
-        const radius = rMin + (rMax - rMin) * rnd();
-        const density = dMin + (dMax - dMin) * rnd();
-        const mass = obstacleMass(radius, density, opts);
-        out.push({ pos, radius, density, mass, color: densityColor(density, dMin, dMax) });
-      }
+  const spec = (pos: Vec3, radius: number, density: number): ObstacleSpec =>
+    ({ pos, radius, density, mass: obstacleMass(radius, density, opts), color: densityColor(density, dMin, dMax) });
+  const push = (pos: Vec3) => {
+    if (out.length >= maxObstacles) return;
+    if (Math.hypot(pos.x, pos.y, pos.z) <= spawnClear) return; // keep the spawn bubble clear
+    out.push(spec(pos, rMin + (rMax - rMin) * rnd(), dMin + (dMax - dMin) * rnd()));
+  };
+
+  // Greeter: a heavy obstacle exactly on the +z spawn path (deterministic head-on),
+  // plus a few jittered around it.
+  out.push(spec({ x: 0, y: 0, z: greeterZ }, rMax, (dMin + dMax) / 2));
+  for (let i = 0; i < 6; i++) {
+    push({
+      x: clampAxis(gauss() * greeterRadius * 0.5),
+      y: clampAxis(gauss() * greeterRadius * 0.5),
+      z: clampAxis(greeterZ + gauss() * greeterRadius * 0.5),
+    });
+  }
+
+  // Free-floating clumps across the volume.
+  for (let c = 0; c < clusterCount; c++) {
+    const cx = (rnd() * 2 - 1) * extent, cy = (rnd() * 2 - 1) * extent, cz = (rnd() * 2 - 1) * extent;
+    const per = perMin + Math.floor(rnd() * (perMax - perMin + 1));
+    for (let i = 0; i < per; i++) {
+      push({ x: clampAxis(cx + gauss() * clusterRadius), y: clampAxis(cy + gauss() * clusterRadius), z: clampAxis(cz + gauss() * clusterRadius) });
+    }
+  }
   return out;
 }
