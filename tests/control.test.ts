@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FlightInput } from '../src/core/flight-types';
 import {
   DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce,
+  aimDelta, DEFAULT_STEER,
 } from '../src/core/control';
 
 const I = (p: Partial<FlightInput> = {}): FlightInput => ({ yawDelta: 0, pitchDelta: 0, forward: 0, strafe: 0, ...p });
@@ -66,5 +67,50 @@ describe('control (pure mapping)', () => {
     expect(boundaryForce({ x: 0, y: 0, z: 0 }, O.bound, O.boundPush)).toEqual({ x: 0, y: 0, z: 0 });
     const f = boundaryForce({ x: O.bound + 100, y: 0, z: 0 }, O.bound, O.boundPush);
     expect(f.x).toBeLessThan(0); // pulled back toward center (-x)
+  });
+});
+
+describe('aim-based steering (aimDelta)', () => {
+  const S = DEFAULT_STEER;
+
+  it('eases the facing toward the drag target and then STOPS (no perpetual spin)', () => {
+    // Hold a fixed leftward drag of 200px from an anchor at yaw 0.
+    let yaw = 0;
+    let last = Infinity;
+    for (let i = 0; i < 400; i++) {
+      const d = aimDelta(yaw, 0, 0, 0, -200, 0, 0.05, S);
+      yaw += d.yawDelta;
+      last = d.yawDelta;
+    }
+    const deflect = Math.min(Math.max(0, 200 - S.deadzonePx), S.maxDeflectionPx);
+    const target = 0 + deflect * S.gain; // dragX<0 -> yaw+ (nose screen-left)
+    expect(yaw).toBeCloseTo(target, 3);        // reached the held target
+    expect(Math.abs(last)).toBeLessThan(1e-3); // ...and the per-frame turn decayed to ~0 (stopped)
+  });
+
+  it('caps deflection so a huge/fast drag cannot run away', () => {
+    const huge = aimDelta(0, 0, 0, 0, -100000, 0, 0.05, S);
+    const atMax = aimDelta(0, 0, 0, 0, -(S.maxDeflectionPx + S.deadzonePx), 0, 0.05, S);
+    expect(huge.yawDelta).toBeCloseTo(atMax.yawDelta, 9); // clamped to the same max target
+  });
+
+  it('ignores drags inside the deadzone', () => {
+    const d = aimDelta(0, 0, 0, 0, S.deadzonePx - 1, S.deadzonePx - 1, 0.05, S);
+    expect(d.yawDelta).toBeCloseTo(0, 9);
+    expect(d.pitchDelta).toBeCloseTo(0, 9);
+  });
+
+  it('clamps the pitch target to +/- pitchLimit (settles at the limit, not beyond)', () => {
+    let pitch = 0;
+    for (let i = 0; i < 400; i++) {
+      const d = aimDelta(0, pitch, 0, 0, 0, 100000, 0.05, S); // drag far down -> nose down
+      pitch += d.pitchDelta;
+    }
+    expect(pitch).toBeGreaterThanOrEqual(-S.pitchLimit - 1e-6);
+    expect(pitch).toBeCloseTo(-S.pitchLimit, 2);
+  });
+
+  it('is deterministic', () => {
+    expect(aimDelta(0.1, 0.2, 0, 0, -50, 30, 0.05, S)).toEqual(aimDelta(0.1, 0.2, 0, 0, -50, 30, 0.05, S));
   });
 });

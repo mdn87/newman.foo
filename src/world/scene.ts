@@ -14,7 +14,8 @@ const THRUSTER_ASPECT = 80 / 120;
 const ARROW_LEN = 3.6;
 // Chase cam: CAM_TURN is how fast the trail eases toward the facing (low = the
 // camera barely swings when you look); CAM_LOOK_LAG keeps the avatar centered.
-const CAM_BACK = 11, CAM_UP = 3.4, CAM_LAG = 5, CAM_LOOK_LAG = 12, CAM_TURN = 5;
+const CAM_BACK = 11, CAM_UP = 3.4, CAM_LAG = 5, CAM_LOOK_LAG = 12, CAM_TURN = 2;
+const CAM_PITCH_MAX = 0.5; // cap the trail's elevation (rad ≈ 29°) so a steep climb/dive never swings the camera near vertical (which would flip the lookAt up-vector)
 const FORWARD = new THREE.Vector3(0, 0, 1);
 const GALAXY_SPIN = 0.015; // rad/s, top-down (about y)
 const EXTENT = 700;        // vast, explorable galaxy — matches the flight soft-bound
@@ -192,11 +193,15 @@ export class WorldScene {
     const pos = v(flight.position);
     const head = v(flight.heading).normalize();
 
-    // Chase cam: ease the trail direction toward the facing SLOWLY (so looking
-    // around rotates the arrow without the camera swinging) and keep the avatar
-    // centered with no roll — steadier, focused framing.
-    this.camDir.lerp(head, 1 - Math.exp(-CAM_TURN * dt));
-    if (this.camDir.lengthSq() < 1e-6) this.camDir.copy(head);
+    // Chase cam trails behind the ship's YAW but with a CAPPED elevation, so a
+    // steep climb/dive never swings the camera near vertical (which would flip the
+    // lookAt up-vector). CAM_TURN is gentle so fast turns don't whip it around.
+    const hm = Math.hypot(head.x, head.z) || 1; // horizontal heading mag (>0 — pitch is clamped < π/2)
+    const camPitch = Math.max(-CAM_PITCH_MAX, Math.min(CAM_PITCH_MAX, Math.asin(Math.max(-1, Math.min(1, head.y)))));
+    const cp = Math.cos(camPitch);
+    const camTarget = new THREE.Vector3((head.x / hm) * cp, Math.sin(camPitch), (head.z / hm) * cp);
+    this.camDir.lerp(camTarget, 1 - Math.exp(-CAM_TURN * dt));
+    if (this.camDir.lengthSq() < 1e-6) this.camDir.copy(camTarget);
     this.camDir.normalize();
     const want = pos.clone().addScaledVector(this.camDir, -CAM_BACK).add(new THREE.Vector3(0, CAM_UP, 0));
     this.camPos.lerp(want, 1 - Math.exp(-CAM_LAG * dt));

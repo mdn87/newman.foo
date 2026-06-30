@@ -1,11 +1,11 @@
 // src/world/wire.ts
 import { DartPhysics } from '../physics/dart';
 import { makeObstacleField } from '../core/field';
+import { aimDelta, DEFAULT_STEER } from '../core/control';
 import { FlightHud } from '../hud/flight-hud';
 import type { WorldScene } from './scene';
 
 const MAX_DT = 0.05;
-const STEER_RATE = 0.009; // drag-steer: rad/s of turn per px of drag offset from the press point
 
 export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): Promise<() => void> {
   const field = makeObstacleField(1981, { extent: 180, spacing: 90 });
@@ -16,6 +16,7 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
   // Drag-to-fly: while the left button is held, the cursor's offset from where it
   // was pressed steers like a flight stick — drag left -> nose left, drag up -> up.
   let dragging = false, pressX = 0, pressY = 0, dragX = 0, dragY = 0;
+  let anchorYaw = 0, anchorPitch = 0; // facing captured when the drag began (aim is relative to it)
   let rightHeld = false;            // right button -> forward thrust
   const keys = new Set<string>();   // movement keys currently down
 
@@ -29,8 +30,10 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
     if (dragging) { dragX = e.clientX - pressX; dragY = e.clientY - pressY; }
   };
   const onPointerDown = (e: { button?: number; clientX: number; clientY: number }) => {
-    if ((e.button ?? 0) === 0) { dragging = true; pressX = e.clientX; pressY = e.clientY; dragX = 0; dragY = 0; }
-    else if (e.button === 2) rightHeld = true;
+    if ((e.button ?? 0) === 0) {
+      dragging = true; pressX = e.clientX; pressY = e.clientY; dragX = 0; dragY = 0;
+      const st = dart.state(); anchorYaw = st.yaw; anchorPitch = st.pitch; // aim relative to current facing
+    } else if (e.button === 2) rightHeld = true;
   };
   const onPointerUp = (e: { button?: number }) => {
     if ((e.button ?? 0) === 0) { dragging = false; dragX = 0; dragY = 0; }
@@ -58,9 +61,15 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
     if (stopped) return;
     const dt = Math.min(MAX_DT, Math.max(0, (now - last) / 1000));
     last = now;
-    // Steer only while dragging: drag left (dragX<0) -> yaw+ -> nose to screen-left.
-    const yawDelta = dragging ? -dragX * STEER_RATE * dt : 0;
-    const pitchDelta = dragging ? -dragY * STEER_RATE * dt : 0;
+    // Aim-based steer: while dragging, ease the facing toward the drag target and
+    // STOP there (no perpetual spin). Deflection is deadzoned + capped, so a fast
+    // or far drag can't run away. Re-grip (release + drag again) to keep turning.
+    let yawDelta = 0, pitchDelta = 0;
+    if (dragging) {
+      const cur = dart.state();
+      const d = aimDelta(cur.yaw, cur.pitch, anchorYaw, anchorPitch, dragX, dragY, dt, DEFAULT_STEER);
+      yawDelta = d.yawDelta; pitchDelta = d.pitchDelta;
+    }
     dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost() });
     const s = dart.state();
     scene.frame(dt, s, dart.obstacleStates());
