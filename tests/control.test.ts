@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FlightInput } from '../src/core/flight-types';
 import {
   DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce,
-  aimDelta, DEFAULT_STEER,
+  aimDelta, DEFAULT_STEER, stepRoll,
 } from '../src/core/control';
 
 const I = (p: Partial<FlightInput> = {}): FlightInput => ({ yawDelta: 0, pitchDelta: 0, forward: 0, strafe: 0, ...p });
@@ -112,5 +112,23 @@ describe('aim-based steering (aimDelta)', () => {
 
   it('is deterministic', () => {
     expect(aimDelta(0.1, 0.2, 0, 0, -50, 30, 0.05, S)).toEqual(aimDelta(0.1, 0.2, 0, 0, -50, 30, 0.05, S));
+  });
+});
+
+describe('stepRoll (barrel-roll spin)', () => {
+  it('snaps to target when within one step', () => {
+    expect(stepRoll(0, 0.1, 16, 0.05)).toBeCloseTo(0.1, 9); // max step 0.8 >= 0.1
+  });
+  it('moves at most speed*dt toward the target (no overshoot)', () => {
+    expect(stepRoll(0, 100, 16, 0.05)).toBeCloseTo(0.8, 9); // 16*0.05
+    expect(stepRoll(0, -100, 16, 0.05)).toBeCloseTo(-0.8, 9);
+  });
+  it('converges to a full 2π roll over time', () => {
+    let a = 0; const target = 2 * Math.PI;
+    for (let i = 0; i < 200; i++) a = stepRoll(a, target, 16, 0.05);
+    expect(a).toBeCloseTo(target, 6);
+  });
+  it('holds at the target', () => {
+    expect(stepRoll(2, 2, 16, 0.05)).toBe(2);
   });
 });

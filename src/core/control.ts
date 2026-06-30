@@ -56,6 +56,14 @@ export function boundaryForce(pos: Vec3, bound: number, boundPush: number): Vec3
   return { x: -pos.x * k, y: -pos.y * k, z: -pos.z * k };
 }
 
+/** Move `angle` toward `target` by at most speed·dt (constant angular speed, no overshoot). */
+export function stepRoll(angle: number, target: number, speed: number, dt: number): number {
+  const max = speed * dt;
+  const d = target - angle;
+  if (Math.abs(d) <= max) return target;
+  return angle + Math.sign(d) * max;
+}
+
 export interface SteerOpts {
   gain: number;            // radians of target turn per pixel of (deadzoned) drag offset
   ease: number;            // how fast the facing eases toward the target (1/s)

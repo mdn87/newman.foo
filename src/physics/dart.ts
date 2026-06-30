@@ -6,7 +6,7 @@
 import '@dimforge/rapier3d/rapier_wasm3d.js';
 import type { FlightInput, FlightState } from '../core/flight-types';
 import {
-  DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce,
+  DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce, stepRoll,
   type ControlOpts,
 } from '../core/control';
 import type { ObstacleSpec } from '../core/field';
@@ -19,6 +19,9 @@ type RigidBody = ReturnType<World['createRigidBody']>;
 const MAX_STEP = 0.05;
 const FIXED = 1 / 120;
 const NO_OBSTACLES = new Float32Array(0);
+const ROLL_SPEED = 16;       // rad/s — ~0.4s per 360°; chaining keeps it spinning
+const SIDESTEP_IMPULSE = 12; // lateral dodge impulse per roll (mass 1; damped)
+const TWO_PI = Math.PI * 2;
 
 /**
  * Rapier-owned dart. A single dynamic point mass (mass = 1, rotations locked):
@@ -37,6 +40,7 @@ export class DartPhysics {
   private readonly obstacles: Obstacles | null = null;
   private yaw = 0; private pitch = 0; private bank = 0; private throttle = 0;
   private surge = 0; private strafeIntent = 0; private acc = 0;
+  private rollTarget = 0;
 
   private constructor(RAPIER: Rapier, private readonly o: ControlOpts, obstacleSpecs: ObstacleSpec[]) {
     this.world = new RAPIER.World({ x: 0, y: 0, z: 0 }); // deep space: no gravity
@@ -69,7 +73,13 @@ export class DartPhysics {
     this.strafeIntent = Math.max(-1, Math.min(1, input.strafe));
     const moving = Math.hypot(input.forward, input.strafe) > 1e-6;
     this.throttle += ((moving ? 1 : 0) - this.throttle) * Math.min(1, 6 * dt);
-    this.bank += ((-this.strafeIntent * 0.5) - this.bank) * Math.min(1, 3 * dt);
+
+    const roll = input.roll ?? 0;
+    if (roll !== 0) {
+      this.rollTarget += roll * TWO_PI; // one full barrel roll per press; chaining keeps it spinning
+      this.body.applyImpulse({ x: right.x * roll * SIDESTEP_IMPULSE, y: 0, z: right.z * roll * SIDESTEP_IMPULSE }, true); // lateral dodge
+    }
+    this.bank = stepRoll(this.bank, this.rollTarget, ROLL_SPEED, dt); // bank now carries the barrel-roll spin
 
     const cap = input.boost ? this.o.boostMaxSpeed : this.o.maxSpeed;
     // thrustForce is loop-invariant: heading/right/input are fixed for this step

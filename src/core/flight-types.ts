@@ -13,6 +13,7 @@ export interface FlightInput {
   forward: number; // -1..1
   strafe: number;  // -1..1
   boost?: boolean; // optional so legacy flight.ts/flight.test.ts are unaffected
+  roll?: -1 | 0 | 1; // edge event: -1 = roll left (A), +1 = roll right (D); one tick per press
 }
 
 export interface FlightState {

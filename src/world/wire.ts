@@ -19,11 +19,12 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
   let anchorYaw = 0, anchorPitch = 0; // facing captured when the drag began (aim is relative to it)
   let rightHeld = false;            // right button -> forward thrust
   const keys = new Set<string>();   // movement keys currently down
+  let rollEvent: -1 | 0 | 1 = 0; // set on a fresh A/D keydown, consumed next frame
 
   const norm = (k: string) => (k.length === 1 ? k.toLowerCase() : k);
   const has = (...k: string[]) => k.some((x) => keys.has(x));
   const forward = () => (has('w', 'ArrowUp') ? 1 : 0) - (has('s', 'ArrowDown') ? 1 : 0);
-  const strafe = () => (has('d', 'ArrowRight') ? 1 : 0) - (has('a', 'ArrowLeft') ? 1 : 0);
+  const strafe = () => 0;
   const boost = () => rightHeld;
 
   const onPointerMove = (e: { clientX: number; clientY: number }) => {
@@ -42,10 +43,16 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
   const onContextMenu = (e: { preventDefault?: () => void }) => e.preventDefault?.(); // right-click = thrust, no menu
 
   const isMoveKey = (k: string) => ['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(k);
-  const onKeyDown = (e: { key: string; preventDefault?: () => void }) => {
+  const onKeyDown = (e: { key: string; repeat?: boolean; preventDefault?: () => void }) => {
     const k = norm(e.key);
-    if (isMoveKey(k)) { keys.add(k); e.preventDefault?.(); }
-    else if (k === 'Escape' || k === 'l') location.href = `?mode=list`; // escape hatch to the list
+    if (isMoveKey(k)) {
+      keys.add(k);
+      if (!e.repeat) {
+        if (k === 'a' || k === 'ArrowLeft') rollEvent = -1;
+        else if (k === 'd' || k === 'ArrowRight') rollEvent = 1;
+      }
+      e.preventDefault?.();
+    } else if (k === 'Escape' || k === 'l') location.href = `?mode=list`;
   };
   const onKeyUp = (e: { key: string }) => { keys.delete(norm(e.key)); };
 
@@ -70,7 +77,8 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
       const d = aimDelta(cur.yaw, cur.pitch, anchorYaw, anchorPitch, dragX, dragY, dt, DEFAULT_STEER);
       yawDelta = d.yawDelta; pitchDelta = d.pitchDelta;
     }
-    dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost() });
+    dart.step(dt, { yawDelta, pitchDelta, forward: forward(), strafe: strafe(), boost: boost(), roll: rollEvent });
+    rollEvent = 0; // consume the one-frame edge
     const s = dart.state();
     scene.frame(dt, s, dart.obstaclePositions());
     hud.setSpeed(s.speed);
