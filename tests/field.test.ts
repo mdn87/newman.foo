@@ -51,13 +51,13 @@ describe('obstacle field (clustered, seeded)', () => {
   it('generates a dense field within the cap', () => {
     const f = F();
     expect(f.length).toBeGreaterThan(800);
-    expect(f.length).toBeLessThanOrEqual(2500); // maxObstacles
+    expect(f.length).toBeLessThanOrEqual(4000); // maxObstacles
   });
 
   it('keeps the spawn bubble clear and stays within extent', () => {
     for (const o of F()) {
       expect(Math.hypot(o.pos.x, o.pos.y, o.pos.z)).toBeGreaterThan(55 - 1e-6); // spawnClear
-      for (const c of [o.pos.x, o.pos.y, o.pos.z]) expect(Math.abs(c)).toBeLessThanOrEqual(400 + 1e-6);
+      for (const c of [o.pos.x, o.pos.y, o.pos.z]) expect(Math.abs(c)).toBeLessThanOrEqual(300 + 1e-6);
     }
   });
 

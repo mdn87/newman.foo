@@ -161,10 +161,14 @@ test('barrel-roll dodge: a single D press side-steps the dart laterally', async 
   await expect(page.locator('canvas#scene')).toBeVisible();
   const readout = page.locator('.flight-readout');
   await page.locator('canvas#scene').click();
+  // Wait until the physics loop is live (readout populated = key listeners attached),
+  // so the single press can't race a still-booting world (heavier with a dense field).
+  await expect(readout).toHaveText(/X/, { timeout: 8000 });
   await page.keyboard.press('d'); // one barrel roll + side-step (no forward thrust)
-  await page.waitForTimeout(900);
-  const x = parseInt((await readout.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
-  expect(Math.abs(x)).toBeGreaterThan(2); // dodged sideways from the lateral impulse
+  await expect(async () => {
+    const x = parseInt((await readout.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
+    expect(Math.abs(x)).toBeGreaterThan(2); // dodged sideways from the lateral impulse
+  }).toPass({ timeout: 3000 });
 });
 
 test.describe('mobile / coarse pointer', () => {

@@ -56,16 +56,16 @@ export function obstacleMass(radius: number, density: number, opts: FieldOpts = 
  * collision e2e is deterministic). The spawn bubble is kept clear. Seeded; capped.
  */
 export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleSpec[] {
-  const extent = opts.extent ?? 400;
+  const extent = opts.extent ?? 300;
   const spawnClear = opts.spawnClear ?? 55;
   const rMin = opts.minRadius ?? 3, rMax = opts.maxRadius ?? 12;
   const dMin = opts.minDensity ?? 0.2, dMax = opts.maxDensity ?? 15;
-  const clusterCount = opts.clusterCount ?? 420;
+  const clusterCount = opts.clusterCount ?? 800;
   const perMin = opts.perClusterMin ?? 5, perMax = opts.perClusterMax ?? 10;
   const clusterRadius = opts.clusterRadius ?? 55;
   const greeterZ = opts.greeterZ ?? 130;
   const greeterRadius = opts.greeterRadius ?? 70;
-  const maxObstacles = opts.maxObstacles ?? 2500;
+  const maxObstacles = opts.maxObstacles ?? 4000;
 
   const rnd = mulberry32(seed);
   const gauss = () => { // Box–Muller (matches galaxy.ts)
