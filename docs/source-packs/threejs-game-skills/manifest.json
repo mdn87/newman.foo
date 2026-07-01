@@ -1,0 +1,101 @@
+{
+  "pack_id": "threejs-game-skills-newman-foo-candidate",
+  "schema": "project-local-source-pack-candidate.v1",
+  "status": "candidate",
+  "active_scope": "project-local",
+  "target_project": {
+    "name": "newman.foo",
+    "repo": "mdn87/newman.foo",
+    "local_name": "notanastronaut",
+    "runtime": "Vite + TypeScript + three.js"
+  },
+  "source": {
+    "name": "threejs-game-skills",
+    "repo": "majidmanzarpour/threejs-game-skills",
+    "url": "https://github.com/majidmanzarpour/threejs-game-skills",
+    "head_commit": "2215fd7c28ce55cee6a593ba1e422485db42498f",
+    "captured_at": "2026-06-28",
+    "license": "MIT",
+    "stars_at_capture": 565,
+    "forks_at_capture": 62,
+    "open_issues_at_capture": 0,
+    "last_push_at_capture": "2026-06-16T11:18:44Z",
+    "skill_count": 9,
+    "markdown_count": 48
+  },
+  "selected_skills": [
+    {
+      "name": "threejs-game-director",
+      "upstream_path": "skills/threejs-game-director/SKILL.md",
+      "use": "Plan coherent playable slices, phases, and quality gates."
+    },
+    {
+      "name": "threejs-gameplay-systems",
+      "upstream_path": "skills/threejs-gameplay-systems/SKILL.md",
+      "use": "Guide loop, controls, camera feel, systems boundaries, and first-playable implementation."
+    },
+    {
+      "name": "threejs-aaa-graphics-builder",
+      "upstream_path": "skills/threejs-aaa-graphics-builder/SKILL.md",
+      "use": "Guide visual hierarchy, material/light polish, procedural detail, and rendering quality."
+    },
+    {
+      "name": "threejs-game-ui-designer",
+      "upstream_path": "skills/threejs-game-ui-designer/SKILL.md",
+      "use": "Guide HUD readability, mode UI, responsive fit, and mobile input surfaces."
+    },
+    {
+      "name": "threejs-debug-profiler",
+      "upstream_path": "skills/threejs-debug-profiler/SKILL.md",
+      "use": "Guide performance profiling, scene debugging, mobile checks, and canvas verification."
+    },
+    {
+      "name": "threejs-qa-release",
+      "upstream_path": "skills/threejs-qa-release/SKILL.md",
+      "use": "Guide playtest evidence, visual verification, and release readiness."
+    },
+    {
+      "name": "threejs-3d-generator",
+      "upstream_path": "skills/threejs-3d-generator/SKILL.md",
+      "use": "Track future 3D asset-generation workflow only; do not execute scripts now."
+    },
+    {
+      "name": "threejs-image-generator",
+      "upstream_path": "skills/threejs-image-generator/SKILL.md",
+      "use": "Track future image asset workflow only; do not execute scripts now."
+    },
+    {
+      "name": "threejs-audio-generator",
+      "upstream_path": "skills/threejs-audio-generator/SKILL.md",
+      "use": "Track future audio asset workflow only; do not execute scripts now."
+    }
+  ],
+  "excluded_until_review": [
+    "scripts/check-python-syntax.py",
+    "scripts/validate-skills.sh",
+    "skills/*/scripts/*",
+    "skills/threejs-gameplay-systems/assets/threejs-vite-game/**",
+    "skills/*/agents/*.yaml"
+  ],
+  "relationships": {
+    "broad_router": "docs/source-packs/gamedev-agent-skills/manifest.json",
+    "api_reference_candidate": "docs/source-packs/threejs-skills-research/manifest.json",
+    "api_authority": "https://threejs.org/docs/"
+  },
+  "local_activation": {
+    "entrypoint": "cleaned/activation-guide.md",
+    "autoload": false,
+    "global_install": false
+  },
+  "later_lugos_import": {
+    "intended_lane": "aeta-to-bran-source-pack",
+    "import_ready": false,
+    "reason": "Project-local candidate first; scripts, scaffolds, agents, and copied upstream files need L1 review before Bran custody.",
+    "required_before_import": [
+      "Bind approval to the recorded upstream commit hash.",
+      "Decide whether to import original MIT upstream files or keep local distillations only.",
+      "Review helper scripts, scaffold assets, and agent YAML files before copying or execution.",
+      "Define which modules are allowed to auto-load for newman.foo tasks."
+    ]
+  }
+}

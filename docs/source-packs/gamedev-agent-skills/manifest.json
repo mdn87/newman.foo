@@ -1,0 +1,136 @@
+{
+  "pack_id": "gamedev-agent-skills-newman-foo-candidate",
+  "schema": "project-local-source-pack-candidate.v1",
+  "status": "candidate",
+  "active_scope": "project-local",
+  "target_project": {
+    "name": "newman.foo",
+    "repo": "mdn87/newman.foo",
+    "local_name": "notanastronaut",
+    "runtime": "Vite + TypeScript + three.js"
+  },
+  "source": {
+    "name": "awesome-gamedev-agent-skills",
+    "repo": "gamedev-skills/awesome-gamedev-agent-skills",
+    "url": "https://github.com/gamedev-skills/awesome-gamedev-agent-skills",
+    "head_commit": "9d0fa9612225d51d9a89f0a0c6f0fe15d85e3ee0",
+    "license": "Apache-2.0",
+    "captured_at": "2026-06-29",
+    "stars_at_capture": 164,
+    "forks_at_capture": 6,
+    "open_issues_at_capture": 0,
+    "last_push_at_capture": "2026-06-27T08:36:50Z",
+    "skill_count": 67,
+    "discipline_count": 13,
+    "web_engine_skill_count": 6
+  },
+  "selected_skills": [
+    {
+      "name": "router",
+      "upstream_path": "router/SKILL.md",
+      "use": "Route game-development requests to the minimal relevant skill set."
+    },
+    {
+      "name": "threejs-scene-setup",
+      "upstream_path": "skills/web-engines/threejs-scene-setup/SKILL.md",
+      "use": "Keep three.js scene, renderer, camera, loop, and resize work aligned with current engine patterns."
+    },
+    {
+      "name": "camera-systems",
+      "upstream_path": "skills/disciplines/camera-systems/SKILL.md",
+      "use": "Guide chase camera smoothing, framing, look behavior, and shake hooks."
+    },
+    {
+      "name": "game-feel",
+      "upstream_path": "skills/disciplines/game-feel/SKILL.md",
+      "use": "Tune feedback, thrust response, transient motion, and accessibility-aware polish."
+    },
+    {
+      "name": "physics-tuning",
+      "upstream_path": "skills/disciplines/physics-tuning/SKILL.md",
+      "use": "Tune timestep, damping, velocity caps, soft bounds, collision-like response, and stability of the existing hand-rolled flight integrator."
+    },
+    {
+      "name": "input-systems",
+      "upstream_path": "skills/disciplines/input-systems/SKILL.md",
+      "use": "Keep keyboard, pointer, and future gamepad controls ergonomic and testable."
+    },
+    {
+      "name": "game-ui-ux",
+      "upstream_path": "skills/disciplines/game-ui-ux/SKILL.md",
+      "use": "Guide HUD, mode switching, responsive layout, and non-overlap checks."
+    },
+    {
+      "name": "performance-optimization",
+      "upstream_path": "skills/disciplines/performance-optimization/SKILL.md",
+      "use": "Preserve frame budget, bundle budget, and asset discipline."
+    },
+    {
+      "name": "procedural-gen",
+      "upstream_path": "skills/disciplines/procedural-gen/SKILL.md",
+      "use": "Guide deterministic galaxy, spatial field, and future generated-content work without compromising repeatable tests."
+    },
+    {
+      "name": "shader-programming",
+      "upstream_path": "skills/disciplines/shader-programming/SKILL.md",
+      "use": "Guide point shaders, fade behavior, material effects, and GPU-cost-aware visual polish."
+    }
+  ],
+  "available_disciplines_at_capture": [
+    "audio-design",
+    "camera-systems",
+    "dialogue-systems",
+    "game-ai",
+    "game-feel",
+    "game-ui-ux",
+    "input-systems",
+    "level-design",
+    "performance-optimization",
+    "physics-tuning",
+    "procedural-gen",
+    "save-systems",
+    "shader-programming"
+  ],
+  "disciplines_not_selected": [
+    {
+      "name": "audio-design",
+      "reason": "No local audio system yet."
+    },
+    {
+      "name": "dialogue-systems",
+      "reason": "No dialogue or narrative runner in the current interaction model."
+    },
+    {
+      "name": "game-ai",
+      "reason": "No non-player behavior or pathfinding surface yet."
+    },
+    {
+      "name": "level-design",
+      "reason": "Useful later, but current map/topology work is covered by procedural generation plus content tests."
+    },
+    {
+      "name": "save-systems",
+      "reason": "No persistent game state beyond route/list navigation yet."
+    }
+  ],
+  "known_gap": {
+    "name": "physics-engine-lane",
+    "reason": "The selected gamedev disciplines tune the existing integrator; they do not select a real rigid-body/collision engine.",
+    "local_pack": "docs/source-packs/physics-engine-research/manifest.json"
+  },
+  "later_lugos_import": {
+    "intended_lane": "aeta-to-bran-source-pack",
+    "import_ready": false,
+    "reason": "Project-local candidate first; no Bran custody or global skill activation yet.",
+    "required_before_import": [
+      "Review source-intake and risk-triage fields.",
+      "Decide whether to copy actual Apache-2.0 skill files or keep original distillation only.",
+      "Bind approval to the recorded upstream commit hash."
+    ]
+  },
+  "local_activation": {
+    "entrypoint": "cleaned/activation-guide.md",
+    "autoload": false,
+    "global_install": false
+  }
+}
