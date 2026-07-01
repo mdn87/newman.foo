@@ -56,8 +56,23 @@ describe('obstacle field (clustered, seeded)', () => {
 
   it('keeps the spawn bubble clear and stays within extent', () => {
     for (const o of F()) {
-      expect(Math.hypot(o.pos.x, o.pos.y, o.pos.z)).toBeGreaterThan(40 - 1e-6); // spawnClear
-      for (const c of [o.pos.x, o.pos.y, o.pos.z]) expect(Math.abs(c)).toBeLessThanOrEqual(450 + 1e-6);
+      expect(Math.hypot(o.pos.x, o.pos.y, o.pos.z)).toBeGreaterThan(55 - 1e-6); // spawnClear
+      for (const c of [o.pos.x, o.pos.y, o.pos.z]) expect(Math.abs(c)).toBeLessThanOrEqual(400 + 1e-6);
+    }
+  });
+
+  it('places obstacles without overlap (so the field spawns at rest, no explosion)', () => {
+    const f = F();
+    for (let i = 0; i < f.length; i++) {
+      const a = f[i]!;
+      for (let j = i + 1; j < f.length; j++) {
+        const b = f[j]!;
+        const dx = a.pos.x - b.pos.x, dy = a.pos.y - b.pos.y, dz = a.pos.z - b.pos.z;
+        const minDist = a.radius + b.radius;
+        if (dx * dx + dy * dy + dz * dz < minDist * minDist) {
+          throw new Error(`obstacles ${i} and ${j} overlap: dist ${Math.hypot(dx, dy, dz).toFixed(1)} < ${minDist.toFixed(1)}`);
+        }
+      }
     }
   });
 

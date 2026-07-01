@@ -56,13 +56,13 @@ export function obstacleMass(radius: number, density: number, opts: FieldOpts = 
  * collision e2e is deterministic). The spawn bubble is kept clear. Seeded; capped.
  */
 export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleSpec[] {
-  const extent = opts.extent ?? 450;
-  const spawnClear = opts.spawnClear ?? 40;
-  const rMin = opts.minRadius ?? 4, rMax = opts.maxRadius ?? 18;
+  const extent = opts.extent ?? 400;
+  const spawnClear = opts.spawnClear ?? 55;
+  const rMin = opts.minRadius ?? 3, rMax = opts.maxRadius ?? 12;
   const dMin = opts.minDensity ?? 0.2, dMax = opts.maxDensity ?? 15;
-  const clusterCount = opts.clusterCount ?? 300;
-  const perMin = opts.perClusterMin ?? 5, perMax = opts.perClusterMax ?? 12;
-  const clusterRadius = opts.clusterRadius ?? 45;
+  const clusterCount = opts.clusterCount ?? 420;
+  const perMin = opts.perClusterMin ?? 5, perMax = opts.perClusterMax ?? 10;
+  const clusterRadius = opts.clusterRadius ?? 55;
   const greeterZ = opts.greeterZ ?? 130;
   const greeterRadius = opts.greeterRadius ?? 70;
   const maxObstacles = opts.maxObstacles ?? 2500;
@@ -76,18 +76,53 @@ export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleS
   };
   const clampAxis = (x: number) => Math.max(-extent, Math.min(extent, x));
 
+  // Normalize the mass model over the ACTUAL generation ranges, so obstacleMass
+  // doesn't fall back to its own [2,9]/[0.2,15] defaults and inflate big radii.
+  const massOpts: FieldOpts = { ...opts, minRadius: rMin, maxRadius: rMax, minDensity: dMin, maxDensity: dMax };
   const out: ObstacleSpec[] = [];
   const spec = (pos: Vec3, radius: number, density: number): ObstacleSpec =>
-    ({ pos, radius, density, mass: obstacleMass(radius, density, opts), color: densityColor(density, dMin, dMax) });
+    ({ pos, radius, density, mass: obstacleMass(radius, density, massOpts), color: densityColor(density, dMin, dMax) });
+
+  // Non-overlap placement: a spatial hash rejects any obstacle that would penetrate
+  // a neighbour, so the dense field spawns AT REST (no depenetration explosion) and
+  // only scatters when the dart plows into it. cell >= the largest possible pair gap.
+  const MARGIN = 2; // min surface gap so nothing overlaps at spawn
+  const cell = 2 * rMax + MARGIN;
+  const grid = new Map<string, { p: Vec3; r: number }[]>();
+  const bucketKey = (x: number, y: number, z: number) => `${Math.floor(x / cell)}|${Math.floor(y / cell)}|${Math.floor(z / cell)}`;
+  const fits = (pos: Vec3, r: number): boolean => {
+    const cx = Math.floor(pos.x / cell), cy = Math.floor(pos.y / cell), cz = Math.floor(pos.z / cell);
+    for (let ix = cx - 1; ix <= cx + 1; ix++)
+      for (let iy = cy - 1; iy <= cy + 1; iy++)
+        for (let iz = cz - 1; iz <= cz + 1; iz++) {
+          const bucket = grid.get(`${ix}|${iy}|${iz}`);
+          if (!bucket) continue;
+          for (const o of bucket) {
+            const dx = pos.x - o.p.x, dy = pos.y - o.p.y, dz = pos.z - o.p.z;
+            const min = r + o.r + MARGIN;
+            if (dx * dx + dy * dy + dz * dz < min * min) return false;
+          }
+        }
+    return true;
+  };
+  const register = (pos: Vec3, r: number) => {
+    const k = bucketKey(pos.x, pos.y, pos.z);
+    const bucket = grid.get(k);
+    if (bucket) bucket.push({ p: pos, r }); else grid.set(k, [{ p: pos, r }]);
+  };
   const push = (pos: Vec3) => {
     if (out.length >= maxObstacles) return;
     if (Math.hypot(pos.x, pos.y, pos.z) <= spawnClear) return; // keep the spawn bubble clear
-    out.push(spec(pos, rMin + (rMax - rMin) * rnd(), dMin + (dMax - dMin) * rnd()));
+    const radius = rMin + (rMax - rMin) * rnd();
+    if (!fits(pos, radius)) return; // skip: would overlap a neighbour
+    out.push(spec(pos, radius, dMin + (dMax - dMin) * rnd()));
+    register(pos, radius);
   };
 
-  // Greeter: a heavy obstacle exactly on the +z spawn path (deterministic head-on),
-  // plus a few jittered around it.
-  out.push(spec({ x: 0, y: 0, z: greeterZ }, rMax, dMin + (dMax - dMin) * 0.15));
+  // Greeter: a big LIGHT obstacle exactly on the +z spawn path (deterministic
+  // head-on, and it scatters when hit), plus a few jittered around it.
+  const greeter = spec({ x: 0, y: 0, z: greeterZ }, rMax, dMin + (dMax - dMin) * 0.15);
+  out.push(greeter); register(greeter.pos, greeter.radius);
   for (let i = 0; i < 6; i++) {
     push({
       x: clampAxis(gauss() * greeterRadius * 0.5),
@@ -96,7 +131,7 @@ export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleS
     });
   }
 
-  // Free-floating clumps across the volume.
+  // Dense free-floating clumps across the volume (overlaps rejected by `fits`).
   for (let c = 0; c < clusterCount; c++) {
     const cx = (rnd() * 2 - 1) * extent, cy = (rnd() * 2 - 1) * extent, cz = (rnd() * 2 - 1) * extent;
     const per = perMin + Math.floor(rnd() * (perMax - perMin + 1));
