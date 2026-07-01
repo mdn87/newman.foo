@@ -54,7 +54,7 @@ export class DartPhysics {
     // Ball collider so the dart physically collides with obstacles; density 0 so it
     // adds no mass (mass stays the v1 reference of 1, preserving thrust feel).
     this.world.createCollider(
-      RAPIER.ColliderDesc.ball(1.6).setRestitution(0.6).setDensity(0),
+      RAPIER.ColliderDesc.ball(1.6).setRestitution(0.85).setDensity(0),
       this.body,
     );
     if (obstacleSpecs.length > 0) {

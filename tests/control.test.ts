@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { FlightInput } from '../src/core/flight-types';
 import {
   DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce,
-  aimDelta, DEFAULT_STEER, stepRoll,
+  steerDelta, deflect01, DEFAULT_STEER, stepRoll,
 } from '../src/core/control';
 
 const I = (p: Partial<FlightInput> = {}): FlightInput => ({ yawDelta: 0, pitchDelta: 0, forward: 0, strafe: 0, ...p });
@@ -70,48 +70,32 @@ describe('control (pure mapping)', () => {
   });
 });
 
-describe('aim-based steering (aimDelta)', () => {
-  const S = DEFAULT_STEER;
-
-  it('eases the facing toward the drag target and then STOPS (no perpetual spin)', () => {
-    // Hold a fixed leftward drag of 200px from an anchor at yaw 0.
-    let yaw = 0;
-    let last = Infinity;
-    for (let i = 0; i < 400; i++) {
-      const d = aimDelta(yaw, 0, 0, 0, -200, 0, 0.05, S);
-      yaw += d.yawDelta;
-      last = d.yawDelta;
-    }
-    const deflect = Math.min(Math.max(0, 200 - S.deadzonePx), S.maxDeflectionPx);
-    const target = 0 + deflect * S.gain; // dragX<0 -> yaw+ (nose screen-left)
-    expect(yaw).toBeCloseTo(target, 3);        // reached the held target
-    expect(Math.abs(last)).toBeLessThan(1e-3); // ...and the per-frame turn decayed to ~0 (stopped)
+describe('steerDelta (rate-based steering + auto-level)', () => {
+  const O = DEFAULT_STEER;
+  it('deadzone: small drag produces no yaw', () => {
+    expect(steerDelta(0, 3, 0, 0.016, O).yawDelta).toBe(0);
   });
-
-  it('caps deflection so a huge/fast drag cannot run away', () => {
-    const huge = aimDelta(0, 0, 0, 0, -100000, 0, 0.05, S);
-    const atMax = aimDelta(0, 0, 0, 0, -(S.maxDeflectionPx + S.deadzonePx), 0, 0.05, S);
-    expect(huge.yawDelta).toBeCloseTo(atMax.yawDelta, 9); // clamped to the same max target
+  it('drag left turns the nose left (yaw+) at a constant rate while held', () => {
+    const a = steerDelta(0, -200, 0, 0.016, O).yawDelta;
+    const b = steerDelta(0, -200, 0, 0.016, O).yawDelta; // same input next frame -> same rate (does NOT decay to 0)
+    expect(a).toBeGreaterThan(0);
+    expect(b).toBeCloseTo(a, 12);
   });
-
-  it('ignores drags inside the deadzone', () => {
-    const d = aimDelta(0, 0, 0, 0, S.deadzonePx - 1, S.deadzonePx - 1, 0.05, S);
-    expect(d.yawDelta).toBeCloseTo(0, 9);
-    expect(d.pitchDelta).toBeCloseTo(0, 9);
+  it('yaw rate is capped at full deflection', () => {
+    const capped = steerDelta(0, -100000, 0, 0.016, O).yawDelta;
+    expect(capped).toBeCloseTo(O.yawRate * 0.016, 9);
   });
-
-  it('clamps the pitch target to +/- pitchLimit (settles at the limit, not beyond)', () => {
-    let pitch = 0;
-    for (let i = 0; i < 400; i++) {
-      const d = aimDelta(0, pitch, 0, 0, 0, 100000, 0.05, S); // drag far down -> nose down
-      pitch += d.pitchDelta;
-    }
-    expect(pitch).toBeGreaterThanOrEqual(-S.pitchLimit - 1e-6);
-    expect(pitch).toBeCloseTo(-S.pitchLimit, 2);
+  it('drag down pitches the nose down', () => {
+    expect(steerDelta(0, 0, 200, 0.016, O).pitchDelta).toBeLessThan(0);
   });
-
-  it('is deterministic', () => {
-    expect(aimDelta(0.1, 0.2, 0, 0, -50, 30, 0.05, S)).toEqual(aimDelta(0.1, 0.2, 0, 0, -50, 30, 0.05, S));
+  it('auto-levels pitch toward 0 when not pitching', () => {
+    expect(steerDelta(0.5, 0, 0, 0.016, O).pitchDelta).toBeLessThan(0);   // above horizon -> comes down
+    expect(steerDelta(-0.5, 0, 0, 0.016, O).pitchDelta).toBeGreaterThan(0); // below horizon -> comes up
+  });
+  it('auto-level snaps exactly to 0 within one step (no overshoot)', () => {
+    const tiny = O.levelRate * 0.016 * 0.5;
+    expect(steerDelta(tiny, 0, 0, 0.016, O).pitchDelta).toBeCloseTo(-tiny, 12);
+    expect(steerDelta(0, 0, 0, 0.016, O).pitchDelta).toBe(0);
   });
 });
 

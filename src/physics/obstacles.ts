@@ -4,9 +4,9 @@ type Rapier = typeof import('@dimforge/rapier3d');
 type World = InstanceType<Rapier['World']>;
 type RigidBody = ReturnType<World['createRigidBody']>;
 
-const RESTITUTION = 0.6;
-const LIN_DAMP = 0.8;
-const ANG_DAMP = 0.8;
+const RESTITUTION = 0.85;
+const LIN_DAMP = 0.15;
+const ANG_DAMP = 0.2;
 
 /**
  * Dynamic obstacle bodies in a shared Rapier World. Each is a ball with mass set

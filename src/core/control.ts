@@ -65,40 +65,39 @@ export function stepRoll(angle: number, target: number, speed: number, dt: numbe
 }
 
 export interface SteerOpts {
-  gain: number;            // radians of target turn per pixel of (deadzoned) drag offset
-  ease: number;            // how fast the facing eases toward the target (1/s)
-  deadzonePx: number;      // ignore drags smaller than this
-  maxDeflectionPx: number; // cap the drag offset so a fast/far drag can't run away
-  pitchLimit: number;      // clamp the pitch target
+  yawRate: number; pitchRate: number;   // max rad/s at full deflection
+  deadzonePx: number; maxDeflectionPx: number;
+  pitchLimit: number; levelRate: number; // rad/s pitch auto-levels toward 0 when not pitching
 }
 
 export const DEFAULT_STEER: SteerOpts = {
-  gain: 0.006, ease: 8, deadzonePx: 6, maxDeflectionPx: 320, pitchLimit: 1.3,
+  yawRate: 1.6, pitchRate: 1.2, deadzonePx: 6, maxDeflectionPx: 320, pitchLimit: 1.3, levelRate: 0.9,
 };
 
-/** Drag offset → signed effective deflection: deadzoned near center, capped at the edge. */
-const deflect = (px: number, deadzonePx: number, maxPx: number): number =>
-  Math.sign(px) * Math.min(Math.max(0, Math.abs(px) - deadzonePx), maxPx);
+/** Normalized signed deflection in [-1,1]: 0 within the deadzone, ±1 at/after maxPx. */
+export function deflect01(px: number, deadzonePx: number, maxPx: number): number {
+  const span = Math.max(1, maxPx - deadzonePx);
+  const e = Math.min(Math.max(0, Math.abs(px) - deadzonePx), span);
+  return Math.sign(px) * (e / span);
+}
 
 /**
- * Aim-based steering. The drag offset (relative to the press anchor) maps to a
- * TARGET facing; the current facing eases toward it and STOPS there — no
- * perpetual spin. Deflection is deadzoned and capped so a fast/far drag can't
- * run away. Returns the per-frame yaw/pitch delta to apply (composes with
- * `integrateFacing`). Pure — no state, no DOM, no Rapier.
+ * Rate-based steering: drag deflection -> a capped turn RATE, so holding a drag
+ * keeps turning (no runaway; stops on release). Pitch turns while dragging
+ * vertically and AUTO-LEVELS toward 0 otherwise (nose returns to the horizon).
+ * dragX/dragY are 0 when not dragging. Returns the per-frame yaw/pitch delta. Pure.
  */
-export function aimDelta(
-  curYaw: number, curPitch: number,
-  anchorYaw: number, anchorPitch: number,
-  dragX: number, dragY: number,
-  dt: number, o: SteerOpts,
-): { yawDelta: number; pitchDelta: number } {
-  // drag left (dragX<0) -> yaw+ (nose to screen-left); drag down (dragY>0) -> pitch- (nose down)
-  const targetYaw = anchorYaw - deflect(dragX, o.deadzonePx, o.maxDeflectionPx) * o.gain;
-  const targetPitch = clamp(
-    anchorPitch - deflect(dragY, o.deadzonePx, o.maxDeflectionPx) * o.gain,
-    -o.pitchLimit, o.pitchLimit,
-  );
-  const k = 1 - Math.exp(-o.ease * dt);
-  return { yawDelta: (targetYaw - curYaw) * k, pitchDelta: (targetPitch - curPitch) * k };
+export function steerDelta(curPitch: number, dragX: number, dragY: number, dt: number, o: SteerOpts): { yawDelta: number; pitchDelta: number } {
+  // `+ 0` normalizes away a `-0` result (e.g. deadzoned input negated below): numerically
+  // identical to 0 in every comparison/arithmetic use, but Object.is/toBe(0) distinguish it.
+  const yawDelta = (-deflect01(dragX, o.deadzonePx, o.maxDeflectionPx) * o.yawRate * dt) + 0; // drag left -> nose left
+  const pitchIn = -deflect01(dragY, o.deadzonePx, o.maxDeflectionPx);                          // drag down -> nose down
+  let pitchDelta: number;
+  if (Math.abs(pitchIn) > 1e-3) {
+    pitchDelta = pitchIn * o.pitchRate * dt;
+  } else {
+    const step = o.levelRate * dt;                     // auto-level toward 0
+    pitchDelta = (Math.abs(curPitch) <= step ? -curPitch : -Math.sign(curPitch) * step) + 0;
+  }
+  return { yawDelta, pitchDelta };
 }

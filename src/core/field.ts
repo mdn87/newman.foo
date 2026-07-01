@@ -56,16 +56,16 @@ export function obstacleMass(radius: number, density: number, opts: FieldOpts = 
  * collision e2e is deterministic). The spawn bubble is kept clear. Seeded; capped.
  */
 export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleSpec[] {
-  const extent = opts.extent ?? 630;
+  const extent = opts.extent ?? 450;
   const spawnClear = opts.spawnClear ?? 40;
-  const rMin = opts.minRadius ?? 2, rMax = opts.maxRadius ?? 9;
+  const rMin = opts.minRadius ?? 4, rMax = opts.maxRadius ?? 18;
   const dMin = opts.minDensity ?? 0.2, dMax = opts.maxDensity ?? 15;
-  const clusterCount = opts.clusterCount ?? 210;
-  const perMin = opts.perClusterMin ?? 5, perMax = opts.perClusterMax ?? 9;
-  const clusterRadius = opts.clusterRadius ?? 55;
+  const clusterCount = opts.clusterCount ?? 300;
+  const perMin = opts.perClusterMin ?? 5, perMax = opts.perClusterMax ?? 12;
+  const clusterRadius = opts.clusterRadius ?? 45;
   const greeterZ = opts.greeterZ ?? 130;
   const greeterRadius = opts.greeterRadius ?? 70;
-  const maxObstacles = opts.maxObstacles ?? 2000;
+  const maxObstacles = opts.maxObstacles ?? 2500;
 
   const rnd = mulberry32(seed);
   const gauss = () => { // Box–Muller (matches galaxy.ts)
@@ -87,7 +87,7 @@ export function makeObstacleField(seed: number, opts: FieldOpts = {}): ObstacleS
 
   // Greeter: a heavy obstacle exactly on the +z spawn path (deterministic head-on),
   // plus a few jittered around it.
-  out.push(spec({ x: 0, y: 0, z: greeterZ }, rMax, (dMin + dMax) / 2));
+  out.push(spec({ x: 0, y: 0, z: greeterZ }, rMax, dMin + (dMax - dMin) * 0.15));
   for (let i = 0; i < 6; i++) {
     push({
       x: clampAxis(gauss() * greeterRadius * 0.5),
