@@ -1,6 +1,6 @@
 // tests/galaxy.test.ts
 import { describe, expect, it } from 'vitest';
-import { makeSpiralGalaxy, GALAXY_MAX_POINTS } from '../src/core/galaxy';
+import { makeSpiralGalaxy, GALAXY_MAX_POINTS, starMass } from '../src/core/galaxy';
 
 describe('makeSpiralGalaxy', () => {
   it('is deterministic for a seed and differs across seeds', () => {
@@ -16,6 +16,27 @@ describe('makeSpiralGalaxy', () => {
     expect(f.sizes.length).toBe(5000);
     expect(f.alphas.length).toBe(5000);
     expect(f.colors.length).toBe(5000 * 3);
+  });
+
+  it('returns deterministic collision radius and mass arrays parallel to the stars', () => {
+    const a = makeSpiralGalaxy(1981, { count: 1000 });
+    const b = makeSpiralGalaxy(1981, { count: 1000 });
+    expect(a.collisionRadii).toHaveLength(a.count);
+    expect(a.masses).toHaveLength(a.count);
+    expect(Array.from(a.collisionRadii)).toEqual(Array.from(b.collisionRadii));
+    expect(Array.from(a.masses)).toEqual(Array.from(b.masses));
+    for (let i = 0; i < a.count; i++) {
+      expect(a.collisionRadii[i]).toBeGreaterThanOrEqual(1.2);
+      expect(a.collisionRadii[i]).toBeLessThanOrEqual(3.2);
+      expect(a.masses[i]).toBeGreaterThanOrEqual(0.1);
+      expect(a.masses[i]).toBeLessThanOrEqual(8);
+    }
+  });
+
+  it('makes darker stars denser at equal visual size', () => {
+    expect(starMass(2, 1)).toBeGreaterThan(starMass(2, 0));
+    expect(starMass(3, 0.5)).toBeGreaterThan(starMass(1, 0.5));
+    expect(starMass(1, 1)).toBeGreaterThan(1);
   });
 
   it('produces a flat disk (thin in y) spanning a wide radius — a galaxy, not a ball', () => {
