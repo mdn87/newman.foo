@@ -47,6 +47,9 @@ describe('FlightMachine (game controls)', () => {
     const m = new FlightMachine();
     run(m, I({ forward: 1 }), 10);
     expect(m.state.throttle).toBeGreaterThan(0.2);
+    expect(m.state.enginePower).toBeGreaterThan(0);
+    m.tick(0.05, I({ forward: -1 }));
+    expect(m.state.enginePower).toBe(0);
     run(m, I(), 60); // release everything
     expect(m.state.throttle).toBeLessThan(0.02);
   });

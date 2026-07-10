@@ -33,7 +33,7 @@ export class FlightMachine {
     this.state = {
       position: { x: 0, y: 0, z: 0 }, velocity: { x: 0, y: 0, z: 0 },
       heading: headingFrom(0, 0), yaw: 0, pitch: 0, bank: 0, throttle: 0, speed: 0,
-      surge: 0, strafe: 0,
+      surge: 0, strafe: 0, enginePower: 0,
     };
   }
 
@@ -62,6 +62,7 @@ export class FlightMachine {
     s.surge = clamp(input.forward, -1, 1);
     s.strafe = clamp(input.strafe, -1, 1);
     s.throttle = ease(s.throttle, mag > 0 ? 1 : 0, o.throttleEase);
+    s.enginePower = s.surge > 0 ? s.throttle * (input.boost ? 1 : 0.6) : 0;
     if (mag > 1e-6) {
       const a = (o.accel * s.throttle * dt) / mag;
       s.velocity.x += fx * a; s.velocity.y += fy * a; s.velocity.z += fz * a;

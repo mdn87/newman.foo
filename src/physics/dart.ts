@@ -9,16 +9,16 @@ import {
   DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce, stepRoll,
   type ControlOpts,
 } from '../core/control';
-import type { ObstacleSpec } from '../core/field';
-import { Obstacles } from './obstacles';
+import type { SpiralField } from '../core/galaxy';
+import { StarCollisions, type ActiveStarSnapshot } from './star-collisions';
 
 type Rapier = typeof import('@dimforge/rapier3d');
 type World = InstanceType<Rapier['World']>;
 type RigidBody = ReturnType<World['createRigidBody']>;
+type Collider = ReturnType<World['createCollider']>;
 
 const MAX_STEP = 0.05;
 const FIXED = 1 / 120;
-const NO_OBSTACLES = new Float32Array(0);
 const ROLL_SPEED = 16;       // rad/s — ~0.4s per 360°; chaining keeps it spinning
 const SIDESTEP_IMPULSE = 12; // lateral dodge impulse per roll (mass 1; damped)
 const TWO_PI = Math.PI * 2;
@@ -30,39 +30,44 @@ const TWO_PI = Math.PI * 2;
  * collider shapes in v1.
  */
 export class DartPhysics {
-  static async create(opts: Partial<ControlOpts> = {}, obstacleSpecs: ObstacleSpec[] = []): Promise<DartPhysics> {
-    const RAPIER = await import('@dimforge/rapier3d');
-    return new DartPhysics(RAPIER, { ...DEFAULT_CONTROL, ...opts }, obstacleSpecs);
+  static async create(opts: Partial<ControlOpts> = {}, galaxy: SpiralField): Promise<DartPhysics> {
+    const RAPIER = await import('@dimforge/rapier3d/rapier.js?inline') as unknown as Rapier;
+    return new DartPhysics(RAPIER, { ...DEFAULT_CONTROL, ...opts }, galaxy);
   }
 
   private readonly world: World;
   private readonly body: RigidBody;
-  private readonly obstacles: Obstacles | null = null;
+  private readonly shipCollider: Collider;
+  private readonly stars: StarCollisions;
   private yaw = 0; private pitch = 0; private bank = 0; private throttle = 0;
   private surge = 0; private strafeIntent = 0; private acc = 0;
   private rollTarget = 0;
+  private boosting = false;
+  private readonly predicted = { x: 0, y: 0, z: 0 };
 
-  private constructor(RAPIER: Rapier, private readonly o: ControlOpts, obstacleSpecs: ObstacleSpec[]) {
+  private constructor(RAPIER: Rapier, private readonly o: ControlOpts, galaxy: SpiralField) {
     this.world = new RAPIER.World({ x: 0, y: 0, z: 0 }); // deep space: no gravity
     this.world.timestep = FIXED;
     const desc = RAPIER.RigidBodyDesc.dynamic()
       .setTranslation(0, 0, 0)
       .setLinearDamping(this.o.linearDamping)
       .lockRotations()        // Rapier integrates translation only
-      .setAdditionalMass(1);  // explicit mass; collider density 0 keeps it exactly 1
+      .setAdditionalMass(1)   // explicit mass; collider density 0 keeps it exactly 1
+      .setCcdEnabled(true);
     this.body = this.world.createRigidBody(desc);
-    // Ball collider so the dart physically collides with obstacles; density 0 so it
+    // Ball collider so the dart physically collides with stars; density 0 so it
     // adds no mass (mass stays the v1 reference of 1, preserving thrust feel).
-    this.world.createCollider(
-      RAPIER.ColliderDesc.ball(1.6).setRestitution(0.6).setDensity(0),
+    this.shipCollider = this.world.createCollider(
+      RAPIER.ColliderDesc.ball(1.6)
+        .setRestitution(0.7)
+        .setDensity(0)
+        .setCollisionGroups(0x00010002),
       this.body,
     );
-    if (obstacleSpecs.length > 0) {
-      this.obstacles = new Obstacles(RAPIER, this.world, obstacleSpecs);
-    }
+    this.stars = new StarCollisions(RAPIER, this.world, this.shipCollider.handle, galaxy);
   }
 
-  step(dt: number, input: FlightInput): void {
+  step(dt: number, input: FlightInput, galaxyAngle: number): void {
     if (!(dt > 0)) return;
     const f = integrateFacing(this.yaw, this.pitch, input, this.o.pitchLimit);
     this.yaw = f.yaw; this.pitch = f.pitch;
@@ -73,6 +78,7 @@ export class DartPhysics {
     this.strafeIntent = Math.max(-1, Math.min(1, input.strafe));
     const moving = Math.hypot(input.forward, input.strafe) > 1e-6;
     this.throttle += ((moving ? 1 : 0) - this.throttle) * Math.min(1, 6 * dt);
+    this.boosting = input.boost ?? false;
 
     const roll = input.roll ?? 0;
     if (roll !== 0) {
@@ -81,12 +87,17 @@ export class DartPhysics {
     }
     this.bank = stepRoll(this.bank, this.rollTarget, ROLL_SPEED, dt); // bank now carries the barrel-roll spin
 
-    const cap = input.boost ? this.o.boostMaxSpeed : this.o.maxSpeed;
+    const cap = this.boosting ? this.o.boostMaxSpeed : this.o.maxSpeed;
     // thrustForce is loop-invariant: heading/right/input are fixed for this step
     const thr = thrustForce(input, heading, right, this.o);
     this.acc += Math.min(dt, MAX_STEP);
     while (this.acc >= FIXED) {
       const t = this.body.translation();
+      const v = this.body.linvel();
+      this.predicted.x = t.x + v.x * FIXED + thr.x * this.throttle * FIXED * FIXED * 0.5;
+      this.predicted.y = t.y + v.y * FIXED + thr.y * this.throttle * FIXED * FIXED * 0.5;
+      this.predicted.z = t.z + v.z * FIXED + thr.z * this.throttle * FIXED * FIXED * 0.5;
+      this.stars.prepare(t, this.predicted, galaxyAngle);
       const bnd = boundaryForce(t, this.o.bound, this.o.boundPush);
       this.body.resetForces(false);
       this.body.addForce({
@@ -94,10 +105,14 @@ export class DartPhysics {
         y: thr.y * this.throttle + bnd.y,
         z: thr.z * this.throttle + bnd.z,
       }, true);
-      this.world.step();
-      const v = this.body.linvel();
-      const sp = Math.hypot(v.x, v.y, v.z);
-      if (sp > cap) { const k = cap / sp; this.body.setLinvel({ x: v.x * k, y: v.y * k, z: v.z * k }, true); }
+      this.world.step(this.stars.events);
+      this.stars.afterStep(FIXED, this.body.translation());
+      const nextVelocity = this.body.linvel();
+      const sp = Math.hypot(nextVelocity.x, nextVelocity.y, nextVelocity.z);
+      if (sp > cap) {
+        const k = cap / sp;
+        this.body.setLinvel({ x: nextVelocity.x * k, y: nextVelocity.y * k, z: nextVelocity.z * k }, true);
+      }
       this.acc -= FIXED;
     }
   }
@@ -111,14 +126,16 @@ export class DartPhysics {
       heading: headingFrom(this.yaw, this.pitch),
       yaw: this.yaw, pitch: this.pitch, bank: this.bank, throttle: this.throttle,
       speed: Math.hypot(v.x, v.y, v.z), surge: this.surge, strafe: this.strafeIntent,
+      enginePower: this.surge > 0 ? this.throttle * (this.boosting ? 1 : 0.6) : 0,
     };
   }
 
-  obstaclePositions(): Float32Array {
-    return this.obstacles ? this.obstacles.positions() : NO_OBSTACLES;
+  activeStars(): ActiveStarSnapshot {
+    return this.stars.snapshot();
   }
 
   dispose(): void {
+    this.stars.dispose();
     this.world.free();
   }
 }
