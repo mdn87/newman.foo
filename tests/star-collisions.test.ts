@@ -32,6 +32,16 @@ const field = (mass: number): SpiralField => ({
   count: 1,
 });
 
+const twoStarField: SpiralField = {
+  positions: new Float32Array([0, 0, 28, 0, 0, 100]),
+  sizes: new Float32Array([1, 3]),
+  alphas: new Float32Array([0.5, 1]),
+  colors: new Float32Array([0.29, 0.7, 0.83, 0.09, 0.2, 0.29]),
+  collisionRadii: new Float32Array([1, 3]),
+  masses: new Float32Array([0.2, 6]),
+  count: 2,
+};
+
 function scenario(mass: number) {
   const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
   world.timestep = 1 / 120;
@@ -83,7 +93,7 @@ describe('StarCollisions', () => {
     }
   });
 
-  it('releases a far armed star during render synchronization', () => {
+  it('releases a far armed star during fixed-step maintenance without a snapshot', () => {
     const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
     const ship = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setAdditionalMass(1));
     const shipCollider = world.createCollider(
@@ -93,11 +103,32 @@ describe('StarCollisions', () => {
     const stars = new StarCollisions(RAPIER, world, shipCollider.handle, field(0.2), { capacity: 1 });
     try {
       stars.prepare({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 32 }, 0);
-      const snapshot = stars.snapshot();
-      expect(snapshot.starIndices[0]).toBe(0);
+      expect(stars.snapshot().starIndices[0]).toBe(0);
       stars.afterStep(0, { x: 0, y: 0, z: 100 });
-      expect(snapshot.starIndices[0]).toBe(0);
+      stars.afterStep(0, { x: 0, y: 0, z: 0 });
       expect(stars.snapshot().starIndices[0]).toBe(-1);
+    } finally {
+      stars.dispose();
+      world.free();
+    }
+  });
+
+  it('keeps repeated render snapshots observational', () => {
+    const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
+    const ship = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setAdditionalMass(1));
+    const shipCollider = world.createCollider(
+      RAPIER.ColliderDesc.ball(1.6).setDensity(0).setCollisionGroups(0x00010002),
+      ship,
+    );
+    const stars = new StarCollisions(RAPIER, world, shipCollider.handle, field(0.2), { capacity: 1 });
+    try {
+      stars.prepare({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 32 }, 0);
+      const first = stars.snapshot();
+      expect(stars.snapshot()).toBe(first);
+      expect(stars.snapshot().starIndices[0]).toBe(0);
+      expect(stars.snapshot().hitCount).toBe(0);
+      stars.prepare({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 32 }, 0);
+      expect(stars.snapshot().starIndices[0]).toBe(0);
     } finally {
       stars.dispose();
       world.free();
@@ -142,20 +173,36 @@ describe('StarCollisions', () => {
     }
   });
 
-  it('reuses a released pool slot for the same star', () => {
-    const s = scenario(0.2);
+  it('reuses a released slot with a different star radius and mass', () => {
+    const world = new RAPIER.World({ x: 0, y: 0, z: 0 });
+    const ship = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setAdditionalMass(1));
+    const shipCollider = world.createCollider(
+      RAPIER.ColliderDesc.ball(1.6).setDensity(0).setCollisionGroups(0x00010002),
+      ship,
+    );
+    const stars = new StarCollisions(RAPIER, world, shipCollider.handle, twoStarField, { capacity: 1 });
+    const poolBody = world.bodies.getAll().find((body) => body.handle !== ship.handle)!;
+    const poolCollider = world.colliders.getAll().find((collider) => collider.handle !== shipCollider.handle)!;
     try {
-      for (let i = 0; i < 240; i++) s.stars.afterStep(1 / 120, s.ship.translation());
-      expect(s.stars.snapshot().starIndices[0]).toBe(-1);
-      s.stars.afterStep(0, { x: 0, y: 0, z: 0 });
-      s.stars.prepare({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 32 }, 0);
-      const reused = s.stars.snapshot();
-      expect(reused.starIndices[0]).toBe(0);
-      expect(reused.positions[2]).toBe(28);
-      expect(reused.alphas[0]).toBe(1);
+      stars.prepare({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 32 }, 0);
+      world.step(stars.events);
+      stars.afterStep(world.timestep, ship.translation());
+      expect(stars.snapshot().starIndices[0]).toBe(0);
+      expect(poolCollider.radius()).toBe(1);
+      expect(poolBody.mass()).toBeCloseTo(0.2);
+
+      stars.afterStep(0, { x: 0, y: 0, z: 100 });
+      expect(stars.snapshot().starIndices[0]).toBe(-1);
+      stars.prepare({ x: 0, y: 0, z: 80 }, { x: 0, y: 0, z: 110 }, 0);
+      const reused = stars.snapshot();
+      expect(reused.starIndices[0]).toBe(1);
+      expect(reused.positions[2]).toBe(100);
+      world.step(stars.events);
+      expect(poolCollider.radius()).toBe(3);
+      expect(poolBody.mass()).toBeCloseTo(6);
     } finally {
-      s.stars.dispose();
-      s.world.free();
+      stars.dispose();
+      world.free();
     }
   });
 

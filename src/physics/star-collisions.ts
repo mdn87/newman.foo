@@ -20,10 +20,14 @@ interface Slot {
   starIndex: number;
   phase: 'free' | 'armed' | 'scattered';
   age: number;
+  anchorX: number;
+  anchorY: number;
+  anchorZ: number;
 }
 
 const ACTIVE_RADIUS = 35;
 const RELEASE_RADIUS = 55;
+const RELEASE_RADIUS_SQ = RELEASE_RADIUS * RELEASE_RADIUS;
 const HOLD = 0.9;
 const FADE = 0.6;
 
@@ -47,9 +51,6 @@ export class StarCollisions {
   private readonly localStar: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly worldStar: Vec3 = { x: 0, y: 0, z: 0 };
   private readonly zero: Vec3 = { x: 0, y: 0, z: 0 };
-  private shipX = 0;
-  private shipY = 0;
-  private shipZ = 0;
   private disposed = false;
   private readonly onCollision = (h1: number, h2: number, started: boolean) => {
     if (!started) return;
@@ -95,7 +96,16 @@ export class StarCollisions {
         .setCollisionGroups(0x00020001)
         .setActiveEvents(RAPIER.ActiveEvents.COLLISION_EVENTS), body);
       body.setEnabled(false);
-      this.slots.push({ body, collider, starIndex: -1, phase: 'free', age: 0 });
+      this.slots.push({
+        body,
+        collider,
+        starIndex: -1,
+        phase: 'free',
+        age: 0,
+        anchorX: 0,
+        anchorY: 0,
+        anchorZ: 0,
+      });
       this.colliderSlots.set(collider.handle, i);
     }
   }
@@ -124,6 +134,9 @@ export class StarCollisions {
       slot.starIndex = starIndex;
       slot.phase = 'armed';
       slot.age = 0;
+      slot.anchorX = this.worldStar.x;
+      slot.anchorY = this.worldStar.y;
+      slot.anchorZ = this.worldStar.z;
       slot.body.setEnabled(true);
       slot.body.setTranslation(this.worldStar, true);
       slot.body.setLinvel(this.zero, true);
@@ -134,13 +147,15 @@ export class StarCollisions {
   }
 
   afterStep(dt: number, shipPosition: Vec3): void {
-    this.shipX = shipPosition.x;
-    this.shipY = shipPosition.y;
-    this.shipZ = shipPosition.z;
     this.events.drainCollisionEvents(this.onCollision);
     for (let i = 0; i < this.slots.length; i++) {
       const slot = this.slots[i]!;
-      if (slot.phase === 'scattered') {
+      if (slot.phase === 'armed') {
+        const dx = slot.anchorX - shipPosition.x;
+        const dy = slot.anchorY - shipPosition.y;
+        const dz = slot.anchorZ - shipPosition.z;
+        if (dx * dx + dy * dy + dz * dz > RELEASE_RADIUS_SQ) this.release(slot);
+      } else if (slot.phase === 'scattered') {
         slot.age += dt;
         if (slot.age >= HOLD + FADE) this.release(slot);
       }
@@ -185,16 +200,6 @@ export class StarCollisions {
         continue;
       }
       const p = slot.body.translation(), o = i * 3;
-      if (slot.phase === 'armed' && Math.hypot(
-        p.x - this.shipX,
-        p.y - this.shipY,
-        p.z - this.shipZ,
-      ) > RELEASE_RADIUS) {
-        this.release(slot);
-        this.out.starIndices[i] = -1;
-        this.out.alphas[i] = 0;
-        continue;
-      }
       this.out.starIndices[i] = slot.starIndex;
       this.out.positions[o] = p.x;
       this.out.positions[o + 1] = p.y;
