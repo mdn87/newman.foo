@@ -1,50 +1,15 @@
 import { AxeBuilder } from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, devices, type Page } from '@playwright/test';
 
-const status = (page: Page) => page.locator('.hud-strip .status');
 const body = (page: Page) => page.locator('body');
 const sections = (page: Page) => page.locator('main#content section');
-
-async function expectHudNode(page: Page, text: string | RegExp, timeout = 5_000) {
-  await expect(status(page)).toHaveText(text, { timeout });
-}
-
-test('world mode advances through all six nodes and ends at /contact', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/?mode=world');
-
-  await expect(body(page)).toHaveAttribute('data-mode', 'world');
-  await expectHudNode(page, /^NODE 01\/06\b/);
-
-  for (const node of [
-    'NODE 02/06 · AGENT OPS',
-    'NODE 03/06 · FUSION FORGE',
-    'NODE 04/06 · MAKER BAY',
-    'NODE 05/06 · PRE-FLIGHT HISTORY',
-    'NODE 06/06 · OPEN A CHANNEL',
-  ]) {
-    await page.keyboard.press('ArrowDown');
-    await expectHudNode(page, node, 7_000);
-  }
-
-  await expect(page).toHaveURL(/\/contact\?mode=world$/);
-  expect(new URL(page.url()).pathname).toBe('/contact');
-});
-
-test('deep link to maker bay in world mode spawns node 04', async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: 'no-preference' });
-  await page.goto('/missions/maker-bay?mode=world');
-
-  await expect(body(page)).toHaveAttribute('data-mode', 'world');
-  await expectHudNode(page, 'NODE 04/06 · MAKER BAY');
-});
 
 test('list toggle from world mode switches to list mode and shows all sections', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/?mode=world');
 
   await expect(body(page)).toHaveAttribute('data-mode', 'world');
-  await expectHudNode(page, /^NODE 01\/06\b/);
+  await expect(page.locator('canvas#scene')).toBeVisible();
 
   await page.getByRole('link', { name: /\[\s*list\s*\]/i }).click();
 
@@ -63,17 +28,12 @@ test('reduced motion defaults to list mode', async ({ page }) => {
   await expect(page.locator('canvas#scene')).toHaveCount(0);
 });
 
-test('reduced motion with explicit world opt-in transits instantly', async ({ page }) => {
+test('reduced motion with explicit world opt-in still enters world mode', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/?mode=world');
 
   await expect(body(page)).toHaveAttribute('data-mode', 'world');
-  await expectHudNode(page, /^NODE 01\/06\b/);
-
-  await page.keyboard.press('ArrowDown');
-
-  await expectHudNode(page, 'NODE 02/06 · AGENT OPS', 1_000);
-  await expect(page).toHaveURL(/\/missions\/agent-ops\?mode=world$/);
+  await expect(page.locator('canvas#scene')).toBeVisible();
 });
 
 test('list page passes an axe scan', async ({ page }) => {
@@ -107,4 +67,119 @@ test('prerendered route serves content without JavaScript', async ({ browser, ba
   } finally {
     await context.close();
   }
+});
+
+test('home in world mode boots the free-fly galaxy canvas', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(body(page)).toHaveAttribute('data-mode', 'world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  await expect(page.locator('.hud-strip .status')).toContainText(/move/i, { timeout: 10_000 }); // WASM init can take a moment
+});
+
+test('a mission deep-link renders the list surface (portfolio intact)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/missions/maker-bay'); // not the home route -> list
+  await expect(body(page)).toHaveAttribute('data-mode', 'list');
+  await expect(sections(page)).toHaveCount(6);
+  await expect(page.locator('main#content')).toBeVisible();
+});
+
+test('the world canvas actually renders the galaxy (non-blank)', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  const darkPixels = await page.evaluate(async () => {
+    const c = document.getElementById('scene') as HTMLCanvasElement;
+    const gl = (c.getContext('webgl2') || c.getContext('webgl')) as WebGLRenderingContext;
+    const W = c.width, H = c.height;
+    const px = new Uint8Array(W * H * 4);
+    let best = 0;
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+      gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      let dark = 0;
+      for (let p = 0; p < px.length; p += 4) if (px[p]! < 230 || px[p + 1]! < 230 || px[p + 2]! < 230) dark++;
+      best = Math.max(best, dark);
+    }
+    return best;
+  });
+  expect(darkPixels).toBeGreaterThan(500);
+});
+
+test('rapier physics: holding W accelerates the dart, releasing glides it back to rest', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+
+  const speed = page.locator('.flight-speed');
+  await expect(speed).toHaveText('0 u/s', { timeout: 10_000 }); // wait for WASM init + HUD mount
+
+  await page.locator('canvas#scene').click(); // focus the document for key events
+  await page.keyboard.down('w');
+  await expect(async () => {
+    const txt = await speed.textContent();
+    expect(parseInt(txt ?? '0', 10)).toBeGreaterThan(5);
+  }).toPass({ timeout: 4000 });
+
+  await page.keyboard.up('w');
+  await expect(async () => {
+    const txt = await speed.textContent();
+    expect(parseInt(txt ?? '999', 10)).toBeLessThan(2);
+  }).toPass({ timeout: 8000 });
+});
+
+test('collision: flying into the galaxy reports reactive star activity', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  const canvas = page.locator('canvas#scene');
+  await expect(canvas).toBeVisible();
+  await expect(page.locator('.flight-speed')).toHaveText('0 u/s', { timeout: 10_000 });
+
+  await canvas.click();
+  await page.keyboard.down('w');
+  await expect(async () => {
+    expect(Number(await canvas.getAttribute('data-star-hits'))).toBeGreaterThan(0);
+  }).toPass({ timeout: 5000 });
+  await page.keyboard.up('w');
+  expect(Number(await canvas.getAttribute('data-active-stars'))).toBeGreaterThan(0);
+});
+
+test('forward thrust emits particles that expire after release', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  const canvas = page.locator('canvas#scene');
+  await expect(canvas).toBeVisible();
+  await expect(page.locator('.flight-speed')).toHaveText('0 u/s', { timeout: 10_000 });
+
+  await canvas.click();
+  await page.keyboard.down('w');
+  await expect(async () => {
+    expect(Number(await canvas.getAttribute('data-thruster-particles'))).toBeGreaterThan(0);
+  }).toPass({ timeout: 2000 });
+  await page.keyboard.up('w');
+  await expect(canvas).toHaveAttribute('data-thruster-particles', '0', { timeout: 2000 });
+});
+
+test('barrel-roll dodge: a single D press side-steps the dart laterally', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  const readout = page.locator('.flight-readout');
+  await page.locator('canvas#scene').click();
+  await page.keyboard.press('d'); // one barrel roll + side-step (no forward thrust)
+  await page.waitForTimeout(900);
+  const x = parseInt((await readout.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
+  expect(Math.abs(x)).toBeGreaterThan(2); // dodged sideways from the lateral impulse
+});
+
+test.describe('mobile / coarse pointer', () => {
+  const { defaultBrowserType: _unused, ...iphone13 } = devices['iPhone 13'];
+  test.use(iphone13);
+  test('falls back to the list surface (no free-fly without a fine pointer)', async ({ page }) => {
+    await page.goto('/'); // default rules: coarse pointer -> list
+    await expect(body(page)).toHaveAttribute('data-mode', 'list');
+    await expect(sections(page)).toHaveCount(6);
+    await expect(page.locator('main#content')).toBeVisible();
+  });
 });
