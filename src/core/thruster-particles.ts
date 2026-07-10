@@ -24,6 +24,8 @@ export class ThrusterParticles {
   private readonly velocities: Float32Array;
   private readonly ages: Float32Array;
   private readonly lifetimes: Float32Array;
+  private readonly initialSizes: Float32Array;
+  private readonly initialAlphas: Float32Array;
   private readonly alive: Uint8Array;
   private readonly rnd: () => number;
   private emissionAccumulator = 0;
@@ -37,6 +39,8 @@ export class ThrusterParticles {
     this.velocities = new Float32Array(capacity * 3);
     this.ages = new Float32Array(capacity);
     this.lifetimes = new Float32Array(capacity);
+    this.initialSizes = new Float32Array(capacity);
+    this.initialAlphas = new Float32Array(capacity);
     this.alive = new Uint8Array(capacity);
     this.rnd = mulberry32(seed);
   }
@@ -48,7 +52,7 @@ export class ThrusterParticles {
   }
 
   public step(dt: number, input: ThrusterInput): void {
-    if (!(dt > 0)) return;
+    if (!(dt > 0) || !Number.isFinite(dt)) return;
 
     for (let i = 0; i < this.alive.length; i += 1) {
       if (this.alive[i] === 0) continue;
@@ -67,8 +71,8 @@ export class ThrusterParticles {
       this.positions[offset + 1] = this.positions[offset + 1]! + this.velocities[offset + 1]! * dt;
       this.positions[offset + 2] = this.positions[offset + 2]! + this.velocities[offset + 2]! * dt;
       const life = 1 - age / this.lifetimes[i]!;
-      this.alphas[i] = life * life;
-      this.sizes[i] = (2.2 + (i % 3) * 0.45) * (0.35 + 0.65 * life);
+      this.alphas[i] = this.initialAlphas[i]! * life * life;
+      this.sizes[i] = this.initialSizes[i]! * (0.35 + 0.65 * life);
     }
 
     const power = Math.max(0, Math.min(1, input.enginePower));
@@ -121,8 +125,12 @@ export class ThrusterParticles {
     this.velocities[vectorOffset + 2] = input.velocity.z - input.heading.z * exhaust + jitterZ * 5;
     this.ages[slot] = 0;
     this.lifetimes[slot] = 0.35 + this.rnd() * 0.3;
-    this.sizes[slot] = 2.2 + this.rnd() * 0.9 + boostT * 0.5;
-    this.alphas[slot] = 0.85 + this.rnd() * 0.15;
+    const initialSize = 2.2 + this.rnd() * 0.9 + boostT * 0.5;
+    const initialAlpha = 0.85 + this.rnd() * 0.15;
+    this.initialSizes[slot] = initialSize;
+    this.initialAlphas[slot] = initialAlpha;
+    this.sizes[slot] = initialSize;
+    this.alphas[slot] = initialAlpha;
 
     const dark = this.rnd() < 0.18;
     this.colors[vectorOffset] = dark ? NAVY_R : CYAN_R;
