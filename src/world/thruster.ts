@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { FlightState } from '../core/flight-types';
 import { ThrusterParticles, type ThrusterInput } from '../core/thruster-particles';
+import type { Rgb } from '../core/types';
 
 function material(): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
@@ -64,6 +65,8 @@ export class ThrusterView {
   get aliveCount(): number {
     return this.sim.aliveCount;
   }
+
+  setPalette(main: Rgb, deep: Rgb): void { this.sim.setPalette(main, deep); }
 
   frame(dt: number, flight: FlightState, tailDistance: number): void {
     this.heading.set(flight.heading.x, flight.heading.y, flight.heading.z);

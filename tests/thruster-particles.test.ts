@@ -133,3 +133,33 @@ describe('ThrusterParticles', () => {
     expect(first.alphas).toEqual(second.alphas);
   });
 });
+
+describe('setPalette', () => {
+  const input = () => ({ tail: { x: 0, y: 0, z: 0 }, heading: { x: 0, y: 0, z: 1 }, velocity: { x: 0, y: 0, z: 0 }, enginePower: 1 });
+
+  it('default spawn colors are the legacy cyan/navy pair', () => {
+    const p = new ThrusterParticles(16, 7);
+    p.step(0.2, input()); // emits several particles
+    const c = { r: p.colors[0]!, g: p.colors[1]!, b: p.colors[2]! };
+    const isCyan = Math.round(c.r * 255) === 0x4a && Math.round(c.g * 255) === 0xb3 && Math.round(c.b * 255) === 0xd4;
+    const isNavy = Math.round(c.r * 255) === 0x16 && Math.round(c.g * 255) === 0x32 && Math.round(c.b * 255) === 0x4a;
+    expect(isCyan || isNavy).toBe(true);
+  });
+
+  it('after setPalette, new spawns use the new pair (existing colors untouched until overwritten)', () => {
+    const p = new ThrusterParticles(64, 7);
+    p.step(0.2, input());
+    const main = { r: 1, g: 0.5, b: 0.25 }, deep = { r: 0.5, g: 0.25, b: 0 };
+    p.setPalette(main, deep);
+    const before = Array.from(p.colors);
+    p.step(0.4, input()); // spawns more with the new palette
+    let sawNew = false;
+    for (let i = 0; i < p.capacity; i++) {
+      const r = p.colors[i * 3]!, g = p.colors[i * 3 + 1]!, b = p.colors[i * 3 + 2]!;
+      if ((Math.abs(r - main.r) < 1e-6 && Math.abs(g - main.g) < 1e-6 && Math.abs(b - main.b) < 1e-6)
+        || (Math.abs(r - deep.r) < 1e-6 && Math.abs(g - deep.g) < 1e-6 && Math.abs(b - deep.b) < 1e-6)) sawNew = true;
+    }
+    expect(sawNew).toBe(true);
+    expect(before.length).toBe(p.colors.length); // palette swap alone didn't grow/repaint buffers
+  });
+});

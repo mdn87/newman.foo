@@ -1,5 +1,6 @@
 import { mulberry32 } from './rng';
-import type { Vec3 } from './types';
+import type { Rgb, Vec3 } from './types';
+import { THEMES } from './theme';
 
 export interface ThrusterInput {
   tail: Vec3;
@@ -7,13 +8,6 @@ export interface ThrusterInput {
   velocity: Vec3;
   enginePower: number;
 }
-
-const CYAN_R = 0x4a / 255;
-const CYAN_G = 0xb3 / 255;
-const CYAN_B = 0xd4 / 255;
-const NAVY_R = 0x16 / 255;
-const NAVY_G = 0x32 / 255;
-const NAVY_B = 0x4a / 255;
 
 export class ThrusterParticles {
   public readonly positions: Float32Array;
@@ -30,6 +24,8 @@ export class ThrusterParticles {
   private readonly rnd: () => number;
   private emissionAccumulator = 0;
   private serial = 0;
+  private main: Rgb = THEMES.light.thrusterMain;
+  private deep: Rgb = THEMES.light.thrusterDeep;
 
   public constructor(readonly capacity = 128, seed = 1981) {
     this.positions = new Float32Array(capacity * 3);
@@ -49,6 +45,11 @@ export class ThrusterParticles {
     let count = 0;
     for (let i = 0; i < this.alive.length; i += 1) count += this.alive[i]!;
     return count;
+  }
+
+  /** Swap spawn colors (live re-theming). Alive particles keep their color and fade out. Consumes no RNG. */
+  public setPalette(main: Rgb, deep: Rgb): void {
+    this.main = main; this.deep = deep;
   }
 
   public step(dt: number, input: ThrusterInput): void {
@@ -133,9 +134,10 @@ export class ThrusterParticles {
     this.alphas[slot] = initialAlpha;
 
     const dark = this.rnd() < 0.18;
-    this.colors[vectorOffset] = dark ? NAVY_R : CYAN_R;
-    this.colors[vectorOffset + 1] = dark ? NAVY_G : CYAN_G;
-    this.colors[vectorOffset + 2] = dark ? NAVY_B : CYAN_B;
+    const c = dark ? this.deep : this.main;
+    this.colors[vectorOffset] = c.r;
+    this.colors[vectorOffset + 1] = c.g;
+    this.colors[vectorOffset + 2] = c.b;
     this.alive[slot] = 1;
   }
 }
