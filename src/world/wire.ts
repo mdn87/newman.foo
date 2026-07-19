@@ -2,6 +2,7 @@
 import { DartPhysics } from '../physics/dart';
 import { aimDelta, DEFAULT_STEER } from '../core/control';
 import type { FlightInput } from '../core/flight-types';
+import { GRID_EDGE } from '../core/grid';
 import { FlightHud } from '../hud/flight-hud';
 import { THEMES, getStoredTheme, storeTheme, type ThemeName } from '../core/theme';
 import type { WorldScene } from './scene';
@@ -9,7 +10,10 @@ import type { WorldScene } from './scene';
 const MAX_DT = 0.05;
 
 export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boolean }): Promise<() => void> {
-  const dart = await DartPhysics.create({ bound: 720, boundPush: 220 }, scene.galaxyField);
+  // bound/boundPush still default via DEFAULT_CONTROL for the legacy pure flight.ts
+  // core; DartPhysics itself no longer applies a live boundary force (replaced by
+  // the torus wrap at GRID_EDGE — D3), so no opts are needed here.
+  const dart = await DartPhysics.create({}, scene.galaxyField);
   let themeName: ThemeName = getStoredTheme();
   const applyThemeName = (name: ThemeName) => {
     themeName = name;
@@ -22,6 +26,7 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
   const hud = new FlightHud(document.getElementById('hud-root')!, {
     theme: themeName,
     onThemeToggle: () => applyThemeName(themeName === 'light' ? 'dark' : 'light'),
+    edge: GRID_EDGE,
   });
 
   // Drag-to-fly: while the left button is held, the cursor's offset from where it
@@ -108,8 +113,14 @@ export async function wireWorld(scene: WorldScene, _opts: { reducedMotion: boole
     const s = dart.state();
     const active = dart.activeStars();
     scene.frame(dt, s, active, galaxyAngle);
-    hud.setSpeed(s.speed);
-    hud.setReadout(scene.readout());
+    hud.setNavigation({
+      position: s.position,
+      heading: s.heading,
+      yaw: s.yaw,
+      pitch: s.pitch,
+      speed: s.speed,
+      wrapped: s.wrapped,
+    });
     frameId = requestAnimationFrame(loop);
   };
   frameId = requestAnimationFrame(loop);
