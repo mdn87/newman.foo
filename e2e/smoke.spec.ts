@@ -74,7 +74,9 @@ test('home in world mode boots the free-fly galaxy canvas', async ({ page }) => 
   await page.goto('/?mode=world');
   await expect(body(page)).toHaveAttribute('data-mode', 'world');
   await expect(page.locator('canvas#scene')).toBeVisible();
-  await expect(page.locator('.hud-strip .status')).toContainText(/move/i, { timeout: 10_000 }); // WASM init can take a moment
+  // .hud-strip belongs to the unused list-mode Hud; the free-fly HUD's control
+  // hint lives in the telemetry panel instead (FlightHud, src/hud/flight-hud.ts).
+  await expect(page.locator('.flight-telemetry .flight-controls')).toContainText(/move/i, { timeout: 10_000 }); // WASM init can take a moment
 });
 
 test('a mission deep-link renders the list surface (portfolio intact)', async ({ page }) => {
@@ -105,6 +107,80 @@ test('the world canvas actually renders the galaxy (non-blank)', async ({ page }
     return best;
   });
   expect(darkPixels).toBeGreaterThan(500);
+});
+
+test('world mode HUD renders the three instrument regions, compass bottom-centered', async ({ page }) => {
+  // Ported from codex/toroidal-flight-hud's "boots the spaceship world and HUD" +
+  // "keeps the compass bottom-centered" tests, adapted: this world has a galaxy
+  // and dark-mode tokens (D1), so panels are semi-transparent theme colors, not
+  // opaque white -- assert presence/geometry only, not an exact background color.
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1280, height: 800 }); // above the 900px HUD breakpoint
+  await page.goto('/?mode=world');
+  await expect(page.locator('canvas#scene')).toBeVisible();
+  await expect(page.locator('.flight-telemetry .flight-wrap')).toContainText(/GRID (OK|WRAP)/, { timeout: 10_000 });
+
+  const minimap = page.locator('.flight-minimap');
+  const compass = page.locator('.flight-compass');
+  const telemetry = page.locator('.flight-telemetry');
+  await expect(minimap).toBeVisible();
+  await expect(compass).toBeVisible();
+  await expect(telemetry).toBeVisible();
+
+  const [minimapBox, compassBox, telemetryBox] = await Promise.all([
+    minimap.boundingBox(), compass.boundingBox(), telemetry.boundingBox(),
+  ]);
+  if (!minimapBox || !compassBox || !telemetryBox) throw new Error('an instrument region has no layout box');
+
+  const viewportWidth = page.viewportSize()!.width;
+  const compassCenterX = compassBox.x + compassBox.width / 2;
+  expect(Math.abs(compassCenterX - viewportWidth / 2)).toBeLessThanOrEqual(2); // compass is bottom-centered
+
+  expect(minimapBox.x + minimapBox.width).toBeLessThanOrEqual(compassBox.x); // minimap sits left of the compass
+  expect(telemetryBox.x).toBeGreaterThanOrEqual(compassBox.x + compassBox.width); // telemetry sits right of the compass
+
+  // All three instruments hug the same bottom edge (each pinned bottom: 16px at this viewport width).
+  const bottoms = [minimapBox, compassBox, telemetryBox].map((b) => b.y + b.height);
+  expect(Math.max(...bottoms) - Math.min(...bottoms)).toBeLessThanOrEqual(4);
+});
+
+test('seam crossing: sustained boosted thrust wraps the dart across the ±630 torus boundary', async ({ page }) => {
+  // The dart-physics unit test (tests/dart-physics.test.ts, "wraps across the +z
+  // seam...") proves the wrap teleports position only, preserving velocity/facing.
+  // Here we drive the real wired world the same way (thrust + boost, no steering)
+  // and poll the telemetry Z reading -- persistent DOM state, unlike the one-frame
+  // `wrapped`/`is-wrapped` latch, which is too transient to reliably sample here.
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/?mode=world');
+  const canvas = page.locator('canvas#scene');
+  await expect(canvas).toBeVisible();
+  const xyz = page.locator('.flight-xyz');
+  const speedEl = page.locator('.flight-speed');
+  await expect(xyz).toHaveText(/X/, { timeout: 10_000 });
+
+  const readZ = async () => parseInt((await xyz.textContent())?.match(/Z\s*([+-]\d+)/)?.[1] ?? '0', 10);
+  const readSpeed = async () => parseInt((await speedEl.textContent())?.replace(/[^\d-]/g, '') ?? '0', 10);
+
+  await canvas.click(); // focus the document for key/pointer events
+  await page.mouse.down({ button: 'right' }); // boost held -> speed cap raised to boostMaxSpeed (130 u/s)
+  await page.keyboard.down('w'); // sustained +z thrust, no yaw/pitch/roll input
+
+  try {
+    let climbedNearEdge = false;
+    let sawWrap = false;
+    // ~630 units at up to 130 u/s (plus ramp-up) is on the order of 5-6s of real
+    // time; toPass's 20s budget leaves generous headroom for CI/WASM-boot jitter.
+    await expect(async () => {
+      const z = await readZ();
+      const speed = await readSpeed();
+      if (z > 500 && speed > 0) climbedNearEdge = true; // climbing toward the +630 seam
+      if (climbedNearEdge && z < 0 && speed > 0) sawWrap = true; // re-entered the opposite face, still moving
+      expect(sawWrap).toBe(true);
+    }).toPass({ timeout: 20_000 });
+  } finally {
+    await page.keyboard.up('w');
+    await page.mouse.up({ button: 'right' });
+  }
 });
 
 test('rapier physics: holding W accelerates the dart, releasing glides it back to rest', async ({ page }) => {
@@ -165,11 +241,11 @@ test('barrel-roll dodge: a single D press side-steps the dart laterally', async 
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/?mode=world');
   await expect(page.locator('canvas#scene')).toBeVisible();
-  const readout = page.locator('.flight-readout');
+  const xyz = page.locator('.flight-xyz'); // telemetry panel owns the XYZ readout (D2 removed .flight-readout)
   await page.locator('canvas#scene').click();
   await page.keyboard.press('d'); // one barrel roll + side-step (no forward thrust)
   await page.waitForTimeout(900);
-  const x = parseInt((await readout.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
+  const x = parseInt((await xyz.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
   expect(Math.abs(x)).toBeGreaterThan(2); // dodged sideways from the lateral impulse
 });
 
@@ -177,7 +253,7 @@ test('dark mode: toggle rethemes the galaxy and persists across reload', async (
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/?mode=world');
   await expect(page.locator('canvas#scene')).toBeVisible();
-  await expect(page.locator('.hud-strip .status')).toContainText(/move/i, { timeout: 10_000 });
+  await expect(page.locator('.flight-telemetry .flight-controls')).toContainText(/move/i, { timeout: 10_000 });
   await expect(page.locator('html')).not.toHaveAttribute('data-theme', 'dark');
 
   await page.locator('.theme-toggle').click();
@@ -218,9 +294,9 @@ test('dark mode: toggle rethemes the galaxy and persists across reload', async (
 test('nose-pointing: a coasting dart curves toward where you point', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.goto('/?mode=world');
-  const readout = page.locator('.flight-readout');
+  const xyz = page.locator('.flight-xyz'); // telemetry panel owns the XYZ readout (D2 removed .flight-readout)
   await page.locator('canvas#scene').click();
-  await expect(readout).toHaveText(/X/, { timeout: 8000 });
+  await expect(xyz).toHaveText(/X/, { timeout: 8000 });
 
   // This line has no obstacle field, but the dart spawns at the galaxy's origin
   // (0,0,0) -- inside the dense core/arm-root region of a 30000-star field -- so a
@@ -242,7 +318,7 @@ test('nose-pointing: a coasting dart curves toward where you point', async ({ pa
   // Sampling window (400ms / 1100ms post-drag) matches v1: with linearDamping 0.8,
   // coast speed decays fast (time constant ~1.25s), so sampling while the dart still
   // carries real speed is what makes the momentum-curving-onto-new-heading visible.
-  const xAt = async () => parseInt((await readout.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
+  const xAt = async () => parseInt((await xyz.textContent())?.match(/X\s*([+-]\d+)/)?.[1] ?? '0', 10);
   const x1 = await xAt();
   await page.waitForTimeout(700); // still coasting, no thrust keys
   const x2 = await xAt();
