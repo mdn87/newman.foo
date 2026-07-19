@@ -1,5 +1,15 @@
 export const GRID_MAX_POINTS = 20000;
 
+export const GRID_LINE_SPACING = 90;
+export const GRID_LINE_EXTENT = 700;
+export function gridEdge(opts: { spacing?: number; extent?: number } = {}): number {
+  const spacing = opts.spacing ?? GRID_LINE_SPACING;
+  const extent = opts.extent ?? GRID_LINE_EXTENT;
+  if (!(spacing > 0) || !(extent >= 0)) throw new Error('grid spacing and extent must be positive');
+  return Math.floor(extent / spacing) * spacing;
+}
+export const GRID_EDGE = gridEdge();
+
 /** Regular x/y/z dot lattice filling the flyable volume. Flat xyz Float32Array. */
 export function makeDotGrid(opts: { spacing?: number; extent?: number } = {}): Float32Array {
   const spacing = opts.spacing ?? 26;
