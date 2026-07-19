@@ -108,4 +108,48 @@ describe('DartPhysics', () => {
       dart.dispose();
     }
   });
+
+  it('wraps across the +z seam preserving velocity and facing', async () => {
+    const dart = await DartPhysics.create({}, makeSpiralGalaxy(11, { count: 0 }));
+    try {
+      let sawWrap = false, yawBefore = 0, speedBefore = 0;
+      for (let i = 0; i < 60 * 30 && !sawWrap; i++) {
+        dart.step(1 / 60, input({ forward: 1, boost: true }), 0);
+        const s = dart.state();
+        if (!sawWrap && s.position.z > 600) { yawBefore = s.yaw; speedBefore = s.speed; }
+        if (s.wrapped) {
+          sawWrap = true;
+          expect(s.position.z).toBeLessThan(0);            // re-entered through the opposite face
+          expect(s.position.z).toBeGreaterThanOrEqual(-630);
+          expect(s.yaw).toBeCloseTo(yawBefore, 6);          // facing untouched
+          expect(s.speed).toBeCloseTo(speedBefore, 0);      // momentum carried through (within 1 u/s of the pre-seam sample)
+          expect(s.velocity.z).toBeGreaterThan(0);          // still moving +z
+        }
+      }
+      expect(sawWrap).toBe(true);
+      dart.step(1 / 60, input(), 0);
+      expect(dart.state().wrapped).toBe(false);             // flag is per-step, not sticky
+    } finally {
+      dart.dispose();
+    }
+  });
+
+  it('seam crossing with a real galaxy present stays continuous (sensors, no error)', async () => {
+    const dart = await DartPhysics.create({}, makeSpiralGalaxy(7, { count: 4096, radius: 700, thickness: 8 }));
+    try {
+      let prevSpeed = 0, maxDrop = 0, wrapped = false;
+      for (let i = 0; i < 60 * 30 && !wrapped; i++) {
+        dart.step(1 / 60, input({ forward: 1, boost: true }), 0);
+        const s = dart.state();
+        if (prevSpeed > 10) maxDrop = Math.max(maxDrop, prevSpeed - s.speed);
+        prevSpeed = s.speed;
+        wrapped = s.wrapped;
+      }
+      expect(wrapped).toBe(true);
+      expect(maxDrop).toBeLessThan(0.5);                    // one-way stars: no collision speed loss even at the seam
+      expect(Math.abs(dart.state().position.z)).toBeLessThanOrEqual(630);
+    } finally {
+      dart.dispose();
+    }
+  });
 });

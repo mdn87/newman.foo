@@ -21,6 +21,7 @@ export interface FlightState {
   yaw: number; pitch: number; bank: number; throttle: number; speed: number;
   surge: number; strafe: number; // last movement intents (-1..1), for thruster visuals
   enginePower: number;
+  wrapped: boolean; // latched true only on a step where the ship crossed the torus seam
 }
 
 export interface FlightOpts {
