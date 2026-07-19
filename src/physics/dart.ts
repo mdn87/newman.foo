@@ -6,11 +6,13 @@
 import '@dimforge/rapier3d/rapier_wasm3d.js';
 import type { FlightInput, FlightState } from '../core/flight-types';
 import {
-  DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, boundaryForce, stepRoll,
+  DEFAULT_CONTROL, headingFrom, rightFrom, integrateFacing, thrustForce, stepRoll,
   alignVelocity, type ControlOpts,
 } from '../core/control';
 import type { SpiralField } from '../core/galaxy';
 import { StarCollisions, type ActiveStarSnapshot } from './star-collisions';
+import { wrapPositionInto } from '../core/torus';
+import { GRID_EDGE } from '../core/grid';
 
 type Rapier = typeof import('@dimforge/rapier3d');
 type World = InstanceType<Rapier['World']>;
@@ -44,6 +46,8 @@ export class DartPhysics {
   private rollTarget = 0;
   private boosting = false;
   private readonly predicted = { x: 0, y: 0, z: 0 };
+  private readonly wrapOut = { x: 0, y: 0, z: 0 };
+  private wrapped = false;
 
   private constructor(RAPIER: Rapier, private readonly o: ControlOpts, galaxy: SpiralField) {
     this.world = new RAPIER.World({ x: 0, y: 0, z: 0 }); // deep space: no gravity
@@ -69,6 +73,7 @@ export class DartPhysics {
 
   step(dt: number, input: FlightInput, galaxyAngle: number): void {
     if (!(dt > 0)) return;
+    this.wrapped = false; // per-step latch, not sticky across calls
     const f = integrateFacing(this.yaw, this.pitch, input, this.o.pitchLimit);
     this.yaw = f.yaw; this.pitch = f.pitch;
     const heading = headingFrom(this.yaw, this.pitch);
@@ -99,12 +104,11 @@ export class DartPhysics {
       this.predicted.y = t.y + v.y * FIXED + thr.y * this.throttle * FIXED * FIXED * 0.5;
       this.predicted.z = t.z + v.z * FIXED + thr.z * this.throttle * FIXED * FIXED * 0.5;
       this.stars.prepare(t, this.predicted, galaxyAngle);
-      const bnd = boundaryForce(t, this.o.bound, this.o.boundPush);
       this.body.resetForces(false);
       this.body.addForce({
-        x: thr.x * this.throttle + bnd.x,
-        y: thr.y * this.throttle + bnd.y,
-        z: thr.z * this.throttle + bnd.z,
+        x: thr.x * this.throttle,
+        y: thr.y * this.throttle,
+        z: thr.z * this.throttle,
       }, true);
       this.world.step(this.stars.events);
       this.stars.afterStep(FIXED, this.body.translation(), this.body.linvel());
@@ -114,6 +118,14 @@ export class DartPhysics {
       let sp = Math.hypot(av.x, av.y, av.z);
       if (sp > cap) { const k = cap / sp; av.x *= k; av.y *= k; av.z *= k; sp = cap; }
       if (av.x !== nextVelocity.x || av.y !== nextVelocity.y || av.z !== nextVelocity.z) this.body.setLinvel(av, true);
+      // Toroidal world: canonicalize position into [-GRID_EDGE, GRID_EDGE) on
+      // every axis. Velocity/yaw/pitch/bank/throttle are untouched — only the
+      // position teleports, so momentum and facing carry through the seam.
+      const pos = this.body.translation();
+      if (wrapPositionInto(pos, GRID_EDGE, this.wrapOut)) {
+        this.body.setTranslation(this.wrapOut, true);
+        this.wrapped = true;
+      }
       this.acc -= FIXED;
     }
   }
@@ -128,6 +140,7 @@ export class DartPhysics {
       yaw: this.yaw, pitch: this.pitch, bank: this.bank, throttle: this.throttle,
       speed: Math.hypot(v.x, v.y, v.z), surge: this.surge, strafe: this.strafeIntent,
       enginePower: this.surge > 0 ? this.throttle * (this.boosting ? 1 : 0.6) : 0,
+      wrapped: this.wrapped,
     };
   }
 

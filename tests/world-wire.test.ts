@@ -4,13 +4,24 @@ import { makeSpiralGalaxy } from '../src/core/galaxy';
 import type { WorldScene } from '../src/world/scene';
 
 const hudMocks = vi.hoisted(() => {
-  const instances: Array<{ setSpeed: ReturnType<typeof vi.fn>; setTheme: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> }> = [];
+  const instances: Array<{
+    setSpeed: ReturnType<typeof vi.fn>;
+    setNavigation: ReturnType<typeof vi.fn>;
+    setTheme: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
+  }> = [];
   const FlightHud = vi.fn(function (
-    this: { setSpeed: ReturnType<typeof vi.fn>; setReadout: ReturnType<typeof vi.fn>; setTheme: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> },
+    this: {
+      setSpeed: ReturnType<typeof vi.fn>;
+      setNavigation: ReturnType<typeof vi.fn>;
+      setTheme: ReturnType<typeof vi.fn>;
+      dispose: ReturnType<typeof vi.fn>;
+    },
     _root?: unknown,
     _opts?: unknown,
   ) {
-    this.setSpeed = vi.fn(); this.setReadout = vi.fn(); this.setTheme = vi.fn(); this.dispose = vi.fn(); instances.push(this);
+    this.setSpeed = vi.fn(); this.setNavigation = vi.fn();
+    this.setTheme = vi.fn(); this.dispose = vi.fn(); instances.push(this);
   });
   return { FlightHud, instances };
 });
@@ -39,6 +50,7 @@ const dartMocks = vi.hoisted(() => {
           heading: { x: 0, y: 0, z: -1 },
           yaw: 0, pitch: 0, bank: 0, throttle: 0,
           speed: 0, surge: 0, strafe: 0, enginePower: 0,
+          wrapped: false,
         })),
         activeStars: vi.fn(() => active),
         dispose: vi.fn(),
@@ -111,6 +123,21 @@ describe('wireWorld (free-fly)', () => {
       expect.any(Number),
     );
     expect(dartMocks.DartPhysics.create).toHaveBeenCalledWith(expect.anything(), scene.galaxyField);
+    cleanup();
+  });
+
+  it('feeds navigation state (incl. wrap flag and grid edge) to the instrument HUD each frame', async () => {
+    const { cbs } = installFrame();
+    const scene = makeScene();
+    const cleanup = await wireWorld(scene, { reducedMotion: false });
+    // FlightHud constructed with the torus edge:
+    const opts = hudMocks.FlightHud.mock.calls[0]![1] as { edge: number };
+    expect(opts.edge).toBe(630);
+    cbs.get(1)!(performance.now() + 16);
+    const hud = hudMocks.instances[0]!;
+    expect(hud.setNavigation).toHaveBeenCalledTimes(1);
+    const nav = hud.setNavigation.mock.calls[0]![0];
+    expect(nav).toMatchObject({ wrapped: expect.any(Boolean), yaw: expect.any(Number), pitch: expect.any(Number) });
     cleanup();
   });
 

@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import type { FlightState } from '../core/flight-types';
 import type { Vec3 } from '../core/types';
 import { makeSpiralGalaxy, type SpiralField } from '../core/galaxy';
-import { makeGridLines } from '../core/grid';
+import { makeGridLines, GRID_EDGE } from '../core/grid';
 import { makeVolumeBodies } from '../core/parallax';
 import type { ActiveStarSnapshot } from '../physics/star-collisions';
 import { ThrusterView } from './thruster';
@@ -291,6 +291,20 @@ export class WorldScene {
   frame(dt: number, flight: FlightState, active: ActiveStarSnapshot, galaxyAngle: number): void {
     const pos = v(flight.position);
     const head = v(flight.heading).normalize();
+
+    // Seam wrap: the ship teleports by a whole torus period; carry the smoothed
+    // camera state along rigidly (same quantized shift) or it would spend ~0.5s
+    // zipping 2·GRID_EDGE across the world to catch up, losing the avatar.
+    if (flight.wrapped) {
+      const period = 2 * GRID_EDGE;
+      const shift = new THREE.Vector3(
+        Math.round((pos.x - this.avatar.position.x) / period) * period,
+        Math.round((pos.y - this.avatar.position.y) / period) * period,
+        Math.round((pos.z - this.avatar.position.z) / period) * period,
+      );
+      this.camPos.add(shift);
+      this.lookAt.add(shift);
+    }
 
     // Chase cam trails behind the ship's YAW but with a CAPPED elevation, so a
     // steep climb/dive never swings the camera near vertical (which would flip the

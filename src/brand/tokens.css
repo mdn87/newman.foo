@@ -13,9 +13,6 @@
   --panel-strip: rgba(255, 255, 255, 0.92);
   --panel-card: rgba(255, 255, 255, 0.94);
   --halo: #ffffff;
-  --readout: #38bdf8;
-  --readout-glow-soft: rgba(56, 189, 248, 0.55);
-  --readout-glow-tight: rgba(56, 189, 248, 0.9);
   --speed: #4ab3d4;
   --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
@@ -36,8 +33,5 @@
   --panel-strip: rgba(30, 33, 37, 0.92);
   --panel-card: rgba(30, 33, 37, 0.94);
   --halo: #1e2125;
-  --readout: #ffa64d;
-  --readout-glow-soft: rgba(255, 166, 77, 0.55);
-  --readout-glow-tight: rgba(255, 166, 77, 0.9);
   --speed: #ffa64d;
 }
