@@ -13,7 +13,6 @@ const hudMocks = vi.hoisted(() => {
   const FlightHud = vi.fn(function (
     this: {
       setSpeed: ReturnType<typeof vi.fn>;
-      setReadout: ReturnType<typeof vi.fn>;
       setNavigation: ReturnType<typeof vi.fn>;
       setTheme: ReturnType<typeof vi.fn>;
       dispose: ReturnType<typeof vi.fn>;
@@ -21,7 +20,7 @@ const hudMocks = vi.hoisted(() => {
     _root?: unknown,
     _opts?: unknown,
   ) {
-    this.setSpeed = vi.fn(); this.setReadout = vi.fn(); this.setNavigation = vi.fn();
+    this.setSpeed = vi.fn(); this.setNavigation = vi.fn();
     this.setTheme = vi.fn(); this.dispose = vi.fn(); instances.push(this);
   });
   return { FlightHud, instances };

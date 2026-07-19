@@ -1,6 +1,5 @@
 import './hud.css';
 import type { ThemeName } from '../core/theme';
-import type { Vec3 } from '../core/types';
 
 const sign = (n: number) => (n >= 0 ? '+' : '-') + String(Math.round(Math.abs(n))).padStart(3, '0');
 const compact = (n: number) => String(Number(n.toFixed(2)));
@@ -92,7 +91,12 @@ export class FlightHud {
     this.vectorEl.style.transform = `rotate(${degrees(angle)}deg)`;
     this.vectorEl.style.left = `${compact(mapX)}%`;
     this.vectorEl.style.top = `${compact(mapY)}%`;
-    this.compassBandEl.style.transform = `translateX(${compact(-yaw * 18)}%)`;
+    // Yaw accumulates unbounded across full revolutions (integrateFacing never
+    // normalizes); wrap it into ±π here or the cardinal band slides out of its
+    // overflow window after ~one full turn and the compass goes blank.
+    const TWO_PI = Math.PI * 2;
+    const bandYaw = ((yaw + Math.PI) % TWO_PI + TWO_PI) % TWO_PI - Math.PI;
+    this.compassBandEl.style.transform = `translateX(${compact(-bandYaw * 18)}%)`;
     this.gimbalEl.style.transform = `translateX(-50%) rotate(${degrees(pitch)}deg)`;
 
     this.wrapEl.textContent = wrapped ? 'GRID WRAP' : 'GRID OK';
@@ -104,14 +108,6 @@ export class FlightHud {
     this.speedEl.textContent = `${Math.round(speed)} u/s`;
   }
 
-  /**
-   * @deprecated removed in T5 — telemetry panel owns the readout. No-op kept
-   * only so wire.ts's existing per-frame `hud.setReadout(scene.readout())`
-   * call still compiles until T5 retargets it to `setNavigation`.
-   */
-  setReadout(_r: { x: number; y: number; pos: Vec3; visible: boolean }): void {
-    // intentionally empty
-  }
 
   /** Label shows the theme you'd switch TO ([ dark ] while light is active). */
   setTheme(name: ThemeName): void {

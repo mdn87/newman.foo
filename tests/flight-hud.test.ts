@@ -83,6 +83,21 @@ describe('FlightHud', () => {
     expect(el('.flight-gimbal').style.transform).toMatch(/rotate\(/);
   });
 
+  it('compass band survives full revolutions (yaw normalized into ±π)', () => {
+    const { root, el } = makeRoot();
+    const hud = new FlightHud(root, { edge: 630 });
+    const nav = (yaw: number) => ({
+      speed: 0, position: { x: 0, y: 0, z: 0 }, heading: { x: 0, y: 0, z: 1 },
+      yaw, pitch: 0, wrapped: false,
+    });
+    hud.setNavigation(nav(0.3));
+    const oneTurnEarlier = el('.flight-compass-band').style.transform;
+    hud.setNavigation(nav(0.3 + Math.PI * 2)); // one extra full spin
+    expect(el('.flight-compass-band').style.transform).toBe(oneTurnEarlier);
+    hud.setNavigation(nav(0.3 - Math.PI * 6)); // three spins the other way
+    expect(el('.flight-compass-band').style.transform).toBe(oneTurnEarlier);
+  });
+
   it('maps configured edges and the center to the minimap inner 10-90% range', () => {
     const { root, el } = makeRoot();
     const hud = new FlightHud(root, { edge: 100 });
