@@ -34,4 +34,4 @@ Therefore, by default:
 - Verify before pushing: `npm run typecheck && npm test && npm run build && npm run budgets` (e2e: `npm run e2e`).
 - Budgets are enforced; keep the world chunk within limit.
 - Session context / full topology: `docs/SESSION-HANDOFF-2026-07-19.md`. Spec/plan: `docs/superpowers/`.
-- Unmerged feature: `feat/toroidal-hud-port` (toroidal world-wrap + minimap/gimbal/telemetry HUD) — reviewed, ready, on this repo (`newman.foo`); merge with `git push newmanfoo feat/toroidal-hud-port:master`. See handoff.
+- Merged & LIVE: `feat/toroidal-hud-port` (toroidal world-wrap + minimap/gimbal/telemetry HUD) landed on `master` 2026-07-19 (merge `2d4ad5b`) and deployed to newman.foo. See handoff.
