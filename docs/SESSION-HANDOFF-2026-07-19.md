@@ -24,7 +24,6 @@ state (now realized): **notanastronaut = résumé, newman.foo = game.**
 - **`archive/game-live-2026-07-19`** = `b86c586` — the full game as it was live
   before the swap (dark mode + flight feel + one-way collisions). Recovery point.
 - Game feature branches still hosted here (pushed to origin):
-  - `feat/toroidal-hud-port` = `c13edbe` — **toroidal HUD, NOT merged** (see below)
   - `feat/dark-mode-flight-feel-v2` — the reactive-stars port that became the live game
   - `feat/dark-mode-flight-feel` — the *dense-field* variant (superseded line)
   - `fix/one-way-star-collisions`, `feat/star-collision-particle-thruster-impl`
@@ -35,10 +34,9 @@ state (now realized): **notanastronaut = résumé, newman.foo = game.**
   prototype that newman.foo held before the swap. Recovery point.
 - `archive/newman-codex-prototype` = `aab1897` — an even older prototype.
 
-> **Split-remote wart:** `feat/toroidal-hud-port` is on the *origin*
-> (notanastronaut) remote, but it belongs to the game (newman.foo). Recommend
-> `git push newmanfoo feat/toroidal-hud-port` and continuing game branches on
-> newman.foo. Not done yet to avoid extra preview deploys.
+- **`feat/toroidal-hud-port`** = `c13edbe` — the toroidal HUD (consolidated
+  onto this repo 2026-07-19), reviewed/READY-TO-PUSH, NOT merged. Full gate
+  green (186 unit / 17 e2e / budgets).
 
 ## Feature workstreams & status
 
@@ -54,8 +52,8 @@ state (now realized): **notanastronaut = résumé, newman.foo = game.**
 5. **Toroidal HUD** — torus world-wrap at ±630 grid seam, minimap + gimbal compass
    + telemetry panel (replaces the floating readout), all themed. **DONE on
    `feat/toroidal-hud-port` (c13edbe), reviewed (READY TO PUSH), NOT merged.**
-   Full gate green (186 unit / 17 e2e / budgets). Merging it to the game =
-   `git push newmanfoo feat/toroidal-hud-port:master` (deploys to newman.foo).
+   Full gate green (186 unit / 17 e2e / budgets). It lives on the `newman.foo`
+   remote now; merge = `git push newmanfoo feat/toroidal-hud-port:master`.
 
 ## Cloudflare configuration (account 1e15609de3ff9d11139a11ff603a03cc)
 
